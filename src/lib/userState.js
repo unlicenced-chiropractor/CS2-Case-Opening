@@ -30,7 +30,11 @@ async function startStipendWatcher() {
 async function refreshProfile() {
   if (!state.user) return;
   const data = await apiFetch("/api/me", { method: "GET" });
-  state.user = data.user;
+  state.user = {
+    id: data.user.id,
+    email: data.user.email,
+    isAdmin: Boolean(data.user.isAdmin),
+  };
   state.profile = data.profile;
 }
 
@@ -52,7 +56,11 @@ async function register(email, password) {
       body: JSON.stringify({ email, password }),
     });
     setToken(data.token);
-    state.user = data.user;
+    state.user = {
+      id: data.user.id,
+      email: data.user.email,
+      isAdmin: Boolean(data.user.isAdmin),
+    };
     state.profile = data.profile;
     await startStipendWatcher();
     return true;
@@ -73,7 +81,11 @@ async function login(email, password) {
       body: JSON.stringify({ email, password }),
     });
     setToken(data.token);
-    state.user = data.user;
+    state.user = {
+      id: data.user.id,
+      email: data.user.email,
+      isAdmin: Boolean(data.user.isAdmin),
+    };
     state.profile = data.profile;
     await startStipendWatcher();
     return true;
@@ -132,7 +144,11 @@ async function initAuth() {
 
   try {
     const data = await apiFetch("/api/me", { method: "GET" });
-    state.user = data.user;
+    state.user = {
+      id: data.user.id,
+      email: data.user.email,
+      isAdmin: Boolean(data.user.isAdmin),
+    };
     state.profile = data.profile;
     await startStipendWatcher();
   } catch (_err) {

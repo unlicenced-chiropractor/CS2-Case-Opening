@@ -81,6 +81,16 @@
                   <span class="text-sm font-bold text-amber-400">${{ balance.toFixed(2) }}</span>
                 </div>
 
+                <!-- Admin quick link -->
+                <div v-if="state.user?.isAdmin" class="px-4 py-3 border-b border-white/6">
+                  <RouterLink
+                    to="/admin"
+                    class="block rounded-lg border border-emerald-400/40 bg-emerald-950/30 px-3 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-900/40 transition-all"
+                  >
+                    Open Admin Panel
+                  </RouterLink>
+                </div>
+
                 <!-- Actions -->
                 <div class="p-1.5">
                   <button

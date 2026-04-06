@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   salt TEXT NOT NULL,
+  is_admin INTEGER NOT NULL DEFAULT 0,
   balance REAL NOT NULL DEFAULT 25,
   last_stipend_at INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL

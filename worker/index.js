@@ -172,6 +172,9 @@ export default {
       if (url.pathname === "/api/me" && request.method === "GET") {
         return await me(request, env);
       }
+      if (url.pathname === "/api/admin/me" && request.method === "GET") {
+        return await adminMe(request, env);
+      }
       if (url.pathname === "/api/logout" && request.method === "POST") {
         return await logout(request, env);
       }
@@ -184,9 +187,16 @@ export default {
       if (url.pathname === "/api/sell-item" && request.method === "POST") {
         return await sellItem(request, env);
       }
+      if (url.pathname === "/api/admin/users" && request.method === "GET") {
+        return await adminUsers(request, env);
+      }
+      if (url.pathname === "/api/admin/set-admin" && request.method === "POST") {
+        return await setAdmin(request, env);
+      }
       return json({ error: "Not found" }, 404);
     } catch (err) {
-      return json({ error: err.message || "Server error" }, 500);
+      const status = Number.isInteger(err?.status) ? err.status : 500;
+      return json({ error: err.message || "Server error" }, status);
     }
   },
 };
@@ -218,7 +228,11 @@ async function register(request, env) {
   const session = await createSession(env, userId);
   return json({
     token: session.token,
-    user: { id: userId, email },
+    user: {
+      id: userId,
+      email,
+      isAdmin: false,
+    },
     profile: await getProfile(env, userId),
   });
 }
@@ -270,7 +284,7 @@ async function login(request, env) {
   const email = normalizeEmail(body.email);
   const password = String(body.password || "");
   const user = await env.DB.prepare(
-    "SELECT id, email, password_hash, salt FROM users WHERE email = ?",
+    "SELECT id, email, password_hash, salt, COALESCE(is_admin, 0) AS is_admin FROM users WHERE email = ?",
   )
     .bind(email)
     .first();
@@ -283,7 +297,11 @@ async function login(request, env) {
   const session = await createSession(env, user.id);
   return json({
     token: session.token,
-    user: { id: user.id, email: user.email },
+    user: {
+      id: user.id,
+      email: user.email,
+      isAdmin: asBoolean(user.is_admin),
+    },
     profile: await getProfile(env, user.id),
   });
 }
@@ -291,7 +309,11 @@ async function login(request, env) {
 async function me(request, env) {
   const session = await requireSession(request, env);
   return json({
-    user: { id: session.user.id, email: session.user.email },
+    user: {
+      id: session.user.id,
+      email: session.user.email,
+      isAdmin: asBoolean(session.user.isAdmin),
+    },
     profile: await getProfile(env, session.user.id),
   });
 }
@@ -421,24 +443,40 @@ async function claimStipend(request, env) {
 
 async function requireSession(request, env) {
   const token = getBearerToken(request);
-  if (!token) throw new Error("Missing auth token.");
+  if (!token) {
+    throwObjectStatus("Missing auth token.", 401);
+  }
 
   const session = await env.DB.prepare(
-    "SELECT s.token, s.user_id, s.expires_at, u.email FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?",
+    "SELECT s.token, s.user_id, s.expires_at, u.email, COALESCE(u.is_admin, 0) AS is_admin FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?",
   )
     .bind(token)
     .first();
-  if (!session) throw new Error("Unauthorized.");
+  if (!session) {
+    throwObjectStatus("Unauthorized.", 401);
+  }
   if (Number(session.expires_at) < Date.now()) {
     await env.DB.prepare("DELETE FROM sessions WHERE token = ?")
       .bind(token)
       .run();
-    throw new Error("Session expired.");
+    throwObjectStatus("Session expired.", 401);
   }
   return {
-    user: { id: session.user_id, email: session.email },
+    user: {
+      id: session.user_id,
+      email: session.email,
+      isAdmin: Number(session.is_admin) === 1,
+    },
     token: session.token,
   };
+}
+
+async function requireAdmin(request, env) {
+  const session = await requireSession(request, env);
+  if (!session.user.isAdmin) {
+    throwObjectStatus("Admin access required.", 403);
+  }
+  return session;
 }
 
 async function createSession(env, userId) {
@@ -478,6 +516,83 @@ async function getProfile(env, userId) {
       droppedAt: Number(item.dropped_at),
     })),
   };
+}
+
+async function adminMe(request, env) {
+  const session = await requireSession(request, env);
+
+  return json({
+    userId: session.user.id,
+    isAdmin: asBoolean(session.user.isAdmin),
+  });
+}
+
+async function adminUsers(request, env) {
+  const session = await requireAdmin(request, env);
+
+  const rows = await env.DB.prepare(
+    "SELECT id, email, COALESCE(is_admin, 0) AS is_admin, created_at FROM users ORDER BY created_at DESC",
+  )
+    .all();
+
+  const users = (rows.results || []).map((row) => ({
+    id: row.id,
+    email: row.email,
+    isAdmin: asBoolean(row.is_admin),
+    createdAt: Number(row.created_at ?? 0),
+  }));
+
+  return json({ users });
+}
+
+async function setAdmin(request, env) {
+  const session = await requireAdmin(request, env);
+  const body = await request.json();
+  const userId = String(body.userId || "").trim();
+  const nextAdmin = Number(body.isAdmin);
+
+  if (!userId) {
+    throwObjectStatus("Missing userId.", 400);
+  }
+
+  if (nextAdmin !== 0 && nextAdmin !== 1) {
+    throwObjectStatus("isAdmin must be 0 or 1.", 400);
+  }
+
+  if (userId === session.user.id && nextAdmin === 0) {
+    throwObjectStatus("Cannot remove your own admin role.", 400);
+  }
+
+  const row = await env.DB.prepare("SELECT id FROM users WHERE id = ?")
+    .bind(userId)
+    .first();
+  if (!row) {
+    throwObjectStatus("User not found.", 404);
+  }
+
+  await env.DB.prepare("UPDATE users SET is_admin = ? WHERE id = ?")
+    .bind(nextAdmin, userId)
+    .run();
+
+  const refreshed = await env.DB.prepare(
+    "SELECT id, email, COALESCE(is_admin, 0) AS is_admin, created_at FROM users WHERE id = ?",
+  )
+    .bind(userId)
+    .first();
+
+  return json({
+    ok: true,
+    user: {
+      id: refreshed.id,
+      email: refreshed.email,
+      isAdmin: asBoolean(refreshed.is_admin),
+      createdAt: Number(refreshed.created_at ?? 0),
+    },
+    actor: {
+      id: session.user.id,
+      email: session.user.email,
+    },
+  });
 }
 
 function getBearerToken(request) {
@@ -647,6 +762,16 @@ function corsHeaders() {
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   };
+}
+
+function throwObjectStatus(message, status) {
+  const error = new Error(message);
+  error.status = status;
+  throw error;
+}
+
+function asBoolean(value) {
+  return Number(value) === 1;
 }
 
 function json(payload, status = 200) {

@@ -20,6 +20,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-vue": "^6.0.5",
+    "tailwindcss": "^4.1.14",
     "vite": "^8.0.4",
     "wrangler": "^4.42.3"
   }
