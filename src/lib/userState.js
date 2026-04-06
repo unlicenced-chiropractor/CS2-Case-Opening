@@ -106,6 +106,18 @@ async function signOutUser() {
   state.stipendMessage = "";
 }
 
+async function sellBulk(rarities) {
+  if (!state.user || !state.profile) {
+    throw new Error("Sign in to sell items.");
+  }
+  const data = await apiFetch("/api/sell-bulk", {
+    method: "POST",
+    body: JSON.stringify({ rarities }),
+  });
+  state.profile = data.profile;
+  return { soldCount: data.soldCount, soldValue: data.soldValue };
+}
+
 async function sellItem(inventoryId) {
   if (!state.user || !state.profile) {
     throw new Error("Sign in to sell items.");
@@ -168,6 +180,7 @@ export function useUserState() {
     initAuth,
     openCaseRoll,
     sellItem,
+    sellBulk,
     refreshProfile,
     applyStipendIfEligible,
   };

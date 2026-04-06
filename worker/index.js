@@ -190,8 +190,14 @@ export default {
       if (url.pathname === "/api/admin/users" && request.method === "GET") {
         return await adminUsers(request, env);
       }
-      if (url.pathname === "/api/admin/set-admin" && request.method === "POST") {
+      if (
+        url.pathname === "/api/admin/set-admin" &&
+        request.method === "POST"
+      ) {
         return await setAdmin(request, env);
+      }
+      if (url.pathname === "/api/sell-bulk" && request.method === "POST") {
+        return await sellBulk(request, env);
       }
       return json({ error: "Not found" }, 404);
     } catch (err) {
@@ -201,12 +207,18 @@ export default {
   },
 };
 
+// Mirrors the frontend EMAIL_RE — local@domain.tld, TLD at least 2 chars.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 async function register(request, env) {
   const body = await request.json();
   const email = normalizeEmail(body.email);
   const password = String(body.password || "");
-  if (!email || password.length < 6) {
-    return json({ error: "Invalid email or password (min 6 chars)." }, 400);
+  if (!email || !EMAIL_RE.test(email)) {
+    return json({ error: "Invalid email address." }, 400);
+  }
+  if (password.length < 6) {
+    return json({ error: "Password must be at least 6 characters." }, 400);
   }
 
   const exists = await env.DB.prepare("SELECT id FROM users WHERE email = ?")
@@ -283,6 +295,9 @@ async function login(request, env) {
   const body = await request.json();
   const email = normalizeEmail(body.email);
   const password = String(body.password || "");
+  if (!email || !EMAIL_RE.test(email)) {
+    return json({ error: "Invalid email address." }, 400);
+  }
   const user = await env.DB.prepare(
     "SELECT id, email, password_hash, salt, COALESCE(is_admin, 0) AS is_admin FROM users WHERE email = ?",
   )
@@ -414,6 +429,61 @@ async function sellItem(request, env) {
   });
 }
 
+async function sellBulk(request, env) {
+  const session = await requireSession(request, env);
+  const body = await request.json();
+
+  // rarities is an array of rarity label strings e.g. ["Mil-Spec","Restricted"]
+  const rarities = Array.isArray(body.rarities) ? body.rarities : [];
+  if (!rarities.length) {
+    return json({ error: "No rarities specified." }, 400);
+  }
+
+  // Fetch all unsold items for this user matching those rarities.
+  // D1 doesn't support array bindings, so we build the placeholders manually.
+  const placeholders = rarities.map(() => "?").join(", ");
+  const items = await env.DB.prepare(
+    `SELECT id, item_value FROM inventory WHERE user_id = ? AND sold_at IS NULL AND item_rarity IN (${placeholders})`,
+  )
+    .bind(session.user.id, ...rarities)
+    .all();
+
+  const rows = items.results || [];
+  if (!rows.length) {
+    return json({
+      ok: true,
+      soldCount: 0,
+      soldValue: 0,
+      profile: await getProfile(env, session.user.id),
+    });
+  }
+
+  const now = Date.now();
+  const totalValue = rows.reduce((sum, r) => sum + Number(r.item_value), 0);
+
+  // Mark every matched item as sold in one batch, then credit the balance.
+  const statements = rows.map((r) =>
+    env.DB.prepare("UPDATE inventory SET sold_at = ? WHERE id = ?").bind(
+      now,
+      r.id,
+    ),
+  );
+  statements.push(
+    env.DB.prepare("UPDATE users SET balance = balance + ? WHERE id = ?").bind(
+      totalValue,
+      session.user.id,
+    ),
+  );
+  await env.DB.batch(statements);
+
+  return json({
+    ok: true,
+    soldCount: rows.length,
+    soldValue: Number(totalValue.toFixed(2)),
+    profile: await getProfile(env, session.user.id),
+  });
+}
+
 async function claimStipend(request, env) {
   const session = await requireSession(request, env);
   const row = await env.DB.prepare(
@@ -532,8 +602,7 @@ async function adminUsers(request, env) {
 
   const rows = await env.DB.prepare(
     "SELECT id, email, COALESCE(is_admin, 0) AS is_admin, created_at FROM users ORDER BY created_at DESC",
-  )
-    .all();
+  ).all();
 
   const users = (rows.results || []).map((row) => ({
     id: row.id,

@@ -136,7 +136,76 @@
           <span class="rounded-full bg-white/5 px-2.5 py-0.5 text-[11px] text-zinc-400">{{ inventory.length }} items</span>
         </div>
 
-        <ul v-if="inventory.length" class="mt-4 grid max-h-72 grid-cols-2 gap-2 overflow-y-auto pr-1">
+        <!-- ── MASS SELL BAR ── -->
+        <div v-if="inventory.length" class="mt-4 space-y-2">
+          <p class="text-[11px] text-zinc-600 uppercase tracking-widest">Mass sell by rarity</p>
+          <div class="flex flex-wrap gap-1.5">
+            <button
+              v-for="tier in massSellTiers"
+              :key="tier.rarity"
+              class="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              :class="[
+                tier.borderClass,
+                tier.textClass,
+                massSellPending === tier.rarity
+                  ? tier.activeBgClass
+                  : 'bg-transparent hover:bg-white/5',
+                !tierCount(tier.rarity) ? 'opacity-30 cursor-not-allowed' : ''
+              ]"
+              :disabled="!tierCount(tier.rarity) || bulkSelling"
+              @click="toggleMassSell(tier.rarity)"
+            >
+              <span
+                class="inline-block h-1.5 w-1.5 rounded-full"
+                :class="tier.dotClass"
+              ></span>
+              {{ tier.label }}
+              <span class="rounded-full bg-white/10 px-1.5 py-px text-[10px] font-bold text-white">
+                {{ tierCount(tier.rarity) }}
+              </span>
+            </button>
+          </div>
+
+          <!-- Confirm bar -->
+          <Transition
+            enter-active-class="transition-all duration-200"
+            enter-from-class="opacity-0 -translate-y-1"
+            enter-to-class="opacity-100 translate-y-0"
+            leave-active-class="transition-all duration-150"
+            leave-from-class="opacity-100 translate-y-0"
+            leave-to-class="opacity-0 -translate-y-1"
+          >
+            <div
+              v-if="massSellPending"
+              class="flex items-center justify-between rounded-xl border border-emerald-500/25 bg-emerald-950/30 px-3 py-2.5"
+            >
+              <div class="text-xs text-zinc-300">
+                Sell
+                <span class="font-bold text-white">{{ tierCount(massSellPending) }}</span>
+                {{ massSellPending }} item{{ tierCount(massSellPending) !== 1 ? 's' : '' }} for
+                <span class="font-bold text-emerald-400">${{ tierTotal(massSellPending).toFixed(2) }}</span>?
+              </div>
+              <div class="flex gap-2">
+                <button
+                  class="rounded-lg bg-emerald-500 px-3 py-1 text-xs font-bold text-black transition-all hover:bg-emerald-400 disabled:opacity-50"
+                  :disabled="bulkSelling"
+                  @click="doMassSell"
+                >
+                  {{ bulkSelling ? 'Selling...' : 'Confirm' }}
+                </button>
+                <button
+                  class="rounded-lg border border-white/8 bg-white/5 px-3 py-1 text-xs font-semibold text-zinc-400 hover:bg-white/10 transition-all"
+                  :disabled="bulkSelling"
+                  @click="massSellPending = null"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </div>
+
+        <ul v-if="inventory.length" class="mt-3 grid max-h-72 grid-cols-2 gap-2 overflow-y-auto pr-1">
           <li
             v-for="item in inventory"
             :key="`${item.id}-${item.droppedAt}`"
@@ -216,7 +285,7 @@ import { apiFetch } from "../lib/api";
 import { makeSpinnerFeed } from "../lib/economy";
 import { useUserState } from "../lib/userState";
 
-const { state, openCaseRoll, sellItem } = useUserState();
+const { state, openCaseRoll, sellItem, sellBulk } = useUserState();
 const spinning   = ref(false);
 const catalogSkins = ref(FALLBACK_SKINS);
 const caseCost   = ref(FALLBACK_CASE_COST);
@@ -234,6 +303,48 @@ const previousProfile = ref(null);
 
 // Per-item sell confirm state: { [inventoryId]: 'idle' | 'confirm' | 'selling' }
 const sellState = reactive({});
+
+// Mass sell state
+const massSellPending = ref(null); // rarity string currently staged, or null
+const bulkSelling = ref(false);
+
+const massSellTiers = [
+  { rarity: "Mil-Spec",    label: "Mil-Spec",    dotClass: "bg-sky-400",    borderClass: "border-sky-500/40",    textClass: "text-sky-400",    activeBgClass: "bg-sky-950/50"    },
+  { rarity: "Restricted",  label: "Restricted",  dotClass: "bg-violet-400", borderClass: "border-violet-500/40", textClass: "text-violet-400", activeBgClass: "bg-violet-950/50" },
+  { rarity: "Classified",  label: "Classified",  dotClass: "bg-pink-400",   borderClass: "border-pink-500/40",   textClass: "text-pink-400",   activeBgClass: "bg-pink-950/50"   },
+  { rarity: "Covert",      label: "Covert",      dotClass: "bg-red-400",    borderClass: "border-red-500/40",    textClass: "text-red-400",    activeBgClass: "bg-red-950/50"    },
+  { rarity: "Rare Special",label: "Rare Special",dotClass: "bg-amber-400",  borderClass: "border-amber-400/40",  textClass: "text-amber-300",  activeBgClass: "bg-amber-950/50"  },
+];
+
+function tierCount(rarity) {
+  return inventory.value.filter((i) => i.rarity === rarity).length;
+}
+
+function tierTotal(rarity) {
+  return inventory.value
+    .filter((i) => i.rarity === rarity)
+    .reduce((sum, i) => sum + Number(i.value), 0);
+}
+
+function toggleMassSell(rarity) {
+  massSellPending.value = massSellPending.value === rarity ? null : rarity;
+}
+
+async function doMassSell() {
+  if (!massSellPending.value || bulkSelling.value) return;
+  bulkSelling.value = true;
+  state.error = "";
+  try {
+    const { soldCount, soldValue } = await sellBulk([massSellPending.value]);
+    massSellPending.value = null;
+    state.stipendMessage = `Sold ${soldCount} item${soldCount !== 1 ? "s" : ""} for $${soldValue.toFixed(2)}.`;
+    setTimeout(() => { state.stipendMessage = ""; }, 4000);
+  } catch (err) {
+    state.error = err.message;
+  } finally {
+    bulkSelling.value = false;
+  }
+}
 
 function sellStateFor(id) {
   return sellState[id] ?? "idle";

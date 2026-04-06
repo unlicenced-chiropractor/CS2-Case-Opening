@@ -1,3 +1,6 @@
+# Wrangler local dev state (D1 sqlite files, etc.)
+.wrangler/state/
+
 # Logs
 logs
 *.log

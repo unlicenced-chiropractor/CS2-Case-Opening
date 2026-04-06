@@ -25,7 +25,7 @@
             :class="mode === 'login'
               ? 'bg-amber-400 text-black shadow shadow-amber-500/20'
               : 'text-zinc-500 hover:text-zinc-300'"
-            @click="mode = 'login'; clearMessages()"
+            @click="mode = 'login'; clearMessages(); emailDirty = false"
           >
             Sign In
           </button>
@@ -34,7 +34,7 @@
             :class="mode === 'register'
               ? 'bg-amber-400 text-black shadow shadow-amber-500/20'
               : 'text-zinc-500 hover:text-zinc-300'"
-            @click="mode = 'register'; clearMessages()"
+            @click="mode = 'register'; clearMessages(); emailDirty = false"
           >
             Register
           </button>
@@ -45,19 +45,43 @@
           <!-- Email -->
           <div class="group relative">
             <div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-              <svg class="h-4 w-4 text-zinc-600 group-focus-within:text-amber-400 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg
+                class="h-4 w-4 transition-colors"
+                :class="emailDirty && !emailValid ? 'text-rose-500' : 'text-zinc-600 group-focus-within:text-amber-400'"
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              >
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                 <polyline points="22,6 12,13 2,6"/>
               </svg>
             </div>
             <input
               v-model="email"
-              type="email"
+              type="text"
               placeholder="Email address"
               autocomplete="email"
-              class="w-full rounded-xl border border-white/8 bg-black/40 py-3 pl-10 pr-4 text-sm text-zinc-100 placeholder-zinc-600 outline-none transition-all focus:border-amber-400/60 focus:bg-black/60 focus:ring-1 focus:ring-amber-400/20"
+              class="w-full rounded-xl border bg-black/40 py-3 pl-10 pr-10 text-sm text-zinc-100 placeholder-zinc-600 outline-none transition-all focus:bg-black/60 focus:ring-1"
+              :class="emailDirty && !emailValid
+                ? 'border-rose-500/60 focus:border-rose-500/80 focus:ring-rose-500/20'
+                : 'border-white/8 focus:border-amber-400/60 focus:ring-amber-400/20'"
+              @blur="emailDirty = true"
             />
+            <!-- Valid tick -->
+            <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+              <svg v-if="emailDirty && emailValid" class="h-4 w-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+              <svg v-else-if="emailDirty && !emailValid" class="h-4 w-4 text-rose-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 8v4M12 16h.01"/>
+              </svg>
+            </div>
           </div>
+          <!-- Inline email error -->
+          <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0 -translate-y-1" enter-to-class="opacity-100 translate-y-0">
+            <p v-if="emailDirty && !emailValid" class="text-[11px] text-rose-400 pl-1">
+              Please enter a valid email address.
+            </p>
+          </Transition>
 
           <!-- Password -->
           <div class="group relative">
@@ -126,7 +150,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useUserState } from "../lib/userState";
 
@@ -136,6 +160,13 @@ const email = ref("");
 const password = ref("");
 const mode = ref("login");
 const successMessage = ref("");
+const emailDirty = ref(false);
+
+// RFC-5321-inspired regex: local@domain.tld — covers all realistic addresses
+// without being overly strict.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+const emailValid = computed(() => EMAIL_RE.test(email.value.trim()));
 
 function clearMessages() {
   successMessage.value = "";
@@ -144,9 +175,15 @@ function clearMessages() {
 
 async function submitAuth() {
   clearMessages();
+  emailDirty.value = true;
 
   if (!email.value.trim() || !password.value.trim()) {
     state.error = "Email and password are required.";
+    return;
+  }
+
+  if (!emailValid.value) {
+    state.error = "Please enter a valid email address.";
     return;
   }
 
