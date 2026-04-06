@@ -1,0 +1,12 @@
+name = "casestrike-api"
+main = "worker/index.js"
+compatibility_date = "2026-04-06"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cs2-db"
+database_id = "259dca73-5475-4511-9d6f-de5c108ddb10"

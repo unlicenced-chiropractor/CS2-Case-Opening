@@ -1,0 +1,26 @@
+{
+  "name": "casestrike",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run build && wrangler dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "api:dev": "wrangler dev",
+    "cf:dev": "npm run dev",
+    "cf:deploy": "npm run build && wrangler deploy",
+    "db:migrate:local": "wrangler d1 execute DB --local --file=./worker/schema.sql",
+    "db:migrate:remote": "wrangler d1 execute DB --remote --file=./worker/schema.sql"
+  },
+  "dependencies": {
+    "vue": "^3.5.32",
+    "vue-router": "^4.6.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.14",
+    "@vitejs/plugin-vue": "^6.0.5",
+    "vite": "^8.0.4",
+    "wrangler": "^4.42.3"
+  }
+}
