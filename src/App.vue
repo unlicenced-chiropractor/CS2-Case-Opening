@@ -6,7 +6,7 @@
       :class="{ 'shadow-lg shadow-black/20': headerScrolled }"
     >
       <div class="nav-glow-line absolute inset-x-0 bottom-0 h-px opacity-70" aria-hidden="true" />
-      <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-3">
+      <div class="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3">
         <!-- Logo -->
         <RouterLink
           to="/"
@@ -34,8 +34,25 @@
           </span>
         </RouterLink>
 
+        <!-- Balance -->
+        <div
+          class="hidden min-w-0 flex-1 items-center justify-center px-2 sm:flex"
+          aria-live="polite"
+        >
+          <div
+            class="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 transition-colors duration-200"
+          >
+            <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Balance</span>
+            <span class="text-sm font-bold tabular-nums text-white">{{ balanceDisplay }}</span>
+          </div>
+        </div>
+
         <!-- Nav right -->
-        <nav class="flex items-center gap-1 text-sm">
+        <nav class="flex shrink-0 items-center gap-1 text-sm">
+          <span
+            class="mr-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-bold tabular-nums text-white sm:hidden"
+            aria-label="Balance"
+          >{{ balanceDisplay }}</span>
           <RouterLink
             to="/"
             class="rounded-lg px-3 py-1.5 text-zinc-400 transition-all duration-200 hover:bg-white/5 hover:text-white hover:scale-[1.02]"
@@ -160,9 +177,9 @@
 
     <!-- MAIN -->
     <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-      <RouterView v-slot="{ Component }">
-        <Transition name="page" mode="out-in">
-          <component :is="Component" />
+      <RouterView v-slot="{ Component, route: viewRoute }">
+        <Transition :name="String(viewRoute.meta.transition || 'page')" mode="out-in">
+          <component :is="Component" :key="viewRoute.fullPath" />
         </Transition>
       </RouterView>
     </main>
@@ -191,6 +208,11 @@ const avatarLetter = computed(() => {
 });
 
 const balance = computed(() => Number(state.profile?.balance ?? 0));
+
+const balanceDisplay = computed(() => {
+  if (!state.user) return "—";
+  return `$${balance.value.toFixed(2)}`;
+});
 
 function toggleDropdown() {
   dropdownOpen.value = !dropdownOpen.value;

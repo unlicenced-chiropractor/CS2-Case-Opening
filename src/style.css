@@ -169,6 +169,22 @@ html[data-theme="rose"] {
     transform: translateY(-8px) scale(0.99);
 }
 
+/* Case detail route — slide in from the right, out toward the right (works with browser back) */
+.caseSlide-enter-active,
+.caseSlide-leave-active {
+    transition:
+        opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.caseSlide-enter-from {
+    opacity: 0;
+    transform: translateX(28px) scale(0.992);
+}
+.caseSlide-leave-to {
+    opacity: 0;
+    transform: translateX(18px) scale(0.99);
+}
+
 /* Stagger children — set --stagger-delay on each child */
 .stagger-children > * {
     animation: stagger-fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;

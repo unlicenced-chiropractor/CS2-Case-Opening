@@ -89,16 +89,25 @@ export interface WearEntry {
   weight: number;
 }
 
-export function rollSkin(sourceSkins: Skin[]): Skin {
+export function rollSkin(
+  sourceSkins: Skin[],
+  luckPool?: ReadonlyArray<{ rarity: string; weight: number }> | null,
+): Skin {
   const skins =
     Array.isArray(sourceSkins) && sourceSkins.length > 0
       ? sourceSkins
       : CATALOG_FALLBACK_SKINS;
 
-  const rarity = weightedPick(
-    RARITY_WEIGHTS as ReadonlyArray<{ rarity: string; weight: number }>,
-  );
-  const pool = skins.filter((skin) => skin.rarity === (rarity as { rarity: string }).rarity);
+  const weights: ReadonlyArray<{ rarity: string; weight: number }> =
+    luckPool && luckPool.length > 0
+      ? luckPool
+      : (RARITY_WEIGHTS as ReadonlyArray<{ rarity: string; weight: number }>);
+
+  const rarity = weightedPick(weights);
+  let pool = skins.filter((skin) => skin.rarity === (rarity as { rarity: string }).rarity);
+  if (!pool.length) {
+    pool = skins;
+  }
   const selected = pool[Math.floor(Math.random() * pool.length)] as Skin;
   const wear = weightedPick(WEAR_TABLE as readonly WearEntry[]);
   const wearMultiplier = WEAR_MULTIPLIER[wear.name as keyof typeof WEAR_MULTIPLIER];

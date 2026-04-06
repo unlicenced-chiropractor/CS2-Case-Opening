@@ -158,17 +158,16 @@ async function sellItem(inventoryId) {
   return { soldValue: data.soldValue };
 }
 
-async function openCaseRoll(cost) {
+async function openCaseRoll(caseId) {
   if (!state.user || !state.profile) {
     throw new Error("Sign in to open cases.");
   }
+  const id = String(caseId ?? "").trim() || "classic";
   const data = await apiFetch("/api/open-case", {
     method: "POST",
-    body: JSON.stringify({
-      cost,
-    }),
+    body: JSON.stringify({ caseId: id }),
   });
-  return { drop: data.drop, profile: data.profile };
+  return { drop: data.drop, profile: data.profile, caseId: data.caseId };
 }
 
 async function initAuth() {

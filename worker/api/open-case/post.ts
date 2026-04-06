@@ -1,13 +1,17 @@
-import { CASE_COST } from "../../lib/constants";
+import { resolveCaseForOpen } from "../../lib/cases";
 import { getCatalog, getProfile, json, requireSession, rollSkin } from "../../lib/utils";
 import type { RouteContext } from "../../lib/types";
 
 export async function post({ request, env }: RouteContext): Promise<Response> {
   const session = await requireSession(request, env);
-  const body = (await request.json()) as { cost?: unknown };
-  const cost = Number(body.cost ?? CASE_COST);
+  const body = (await request.json()) as { caseId?: unknown };
+  const resolved = await resolveCaseForOpen(env, body.caseId != null ? String(body.caseId) : null);
+  if (!resolved) {
+    return json({ error: "No cases available." }, 500);
+  }
+  const cost = resolved.cost;
   if (!Number.isFinite(cost) || cost <= 0) {
-    return json({ error: "Invalid case payload." }, 400);
+    return json({ error: "Invalid case configuration." }, 500);
   }
 
   const balanceRow = await env.DB.prepare("SELECT balance FROM users WHERE id = ?")
@@ -19,7 +23,7 @@ export async function post({ request, env }: RouteContext): Promise<Response> {
   }
 
   const catalog = await getCatalog(env);
-  const selectedSkin = rollSkin(catalog.skins);
+  const selectedSkin = rollSkin(catalog.skins, resolved.luckPool);
   const now = Date.now();
   const nextBalance = currentBalance - cost + Number(selectedSkin.value ?? 0);
 
@@ -40,6 +44,7 @@ export async function post({ request, env }: RouteContext): Promise<Response> {
 
   return json({
     ok: true,
+    caseId: resolved.id,
     drop: { ...selectedSkin, droppedAt: now },
     profile: await getProfile(env, session.user.id),
   });
