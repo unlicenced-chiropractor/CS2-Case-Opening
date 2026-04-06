@@ -12,6 +12,21 @@ const state = reactive({
 
 let stipendIntervalId;
 
+function stopStipendWatcher() {
+  if (stipendIntervalId) {
+    clearInterval(stipendIntervalId);
+    stipendIntervalId = undefined;
+  }
+}
+
+async function startStipendWatcher() {
+  stopStipendWatcher();
+  await applyStipendIfEligible();
+  stipendIntervalId = setInterval(() => {
+    applyStipendIfEligible();
+  }, 60 * 1000);
+}
+
 async function refreshProfile() {
   if (!state.user) return;
   const data = await apiFetch("/api/me", { method: "GET" });
@@ -39,8 +54,11 @@ async function register(email, password) {
     setToken(data.token);
     state.user = data.user;
     state.profile = data.profile;
+    await startStipendWatcher();
+    return true;
   } catch (err) {
     state.error = err.message;
+    return false;
   } finally {
     state.loading = false;
   }
@@ -57,8 +75,11 @@ async function login(email, password) {
     setToken(data.token);
     state.user = data.user;
     state.profile = data.profile;
+    await startStipendWatcher();
+    return true;
   } catch (err) {
     state.error = err.message;
+    return false;
   } finally {
     state.loading = false;
   }
@@ -66,6 +87,7 @@ async function login(email, password) {
 
 async function signOutUser() {
   await apiFetch("/api/logout", { method: "POST" }).catch(() => {});
+  stopStipendWatcher();
   setToken("");
   state.user = null;
   state.profile = null;
@@ -92,19 +114,13 @@ async function initAuth() {
   state.profile = null;
   state.stipendMessage = "";
 
-  if (stipendIntervalId) {
-    clearInterval(stipendIntervalId);
-    stipendIntervalId = undefined;
-  }
+  stopStipendWatcher();
 
   try {
     const data = await apiFetch("/api/me", { method: "GET" });
     state.user = data.user;
     state.profile = data.profile;
-    await applyStipendIfEligible();
-    stipendIntervalId = setInterval(() => {
-      applyStipendIfEligible();
-    }, 60 * 1000);
+    await startStipendWatcher();
   } catch (_err) {
     state.user = null;
     state.profile = null;
