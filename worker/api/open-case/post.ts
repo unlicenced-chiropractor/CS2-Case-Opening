@@ -1,0 +1,46 @@
+import { CASE_COST } from "../../lib/constants";
+import { getCatalog, getProfile, json, requireSession, rollSkin } from "../../lib/utils";
+import type { RouteContext } from "../../lib/types";
+
+export async function post({ request, env }: RouteContext): Promise<Response> {
+  const session = await requireSession(request, env);
+  const body = (await request.json()) as { cost?: unknown };
+  const cost = Number(body.cost ?? CASE_COST);
+  if (!Number.isFinite(cost) || cost <= 0) {
+    return json({ error: "Invalid case payload." }, 400);
+  }
+
+  const balanceRow = await env.DB.prepare("SELECT balance FROM users WHERE id = ?")
+    .bind(session.user.id)
+    .first();
+  const currentBalance = Number(balanceRow?.balance ?? 0);
+  if (currentBalance < cost) {
+    return json({ error: "Not enough credits for this case." }, 400);
+  }
+
+  const catalog = await getCatalog(env);
+  const selectedSkin = rollSkin(catalog.skins);
+  const now = Date.now();
+  const nextBalance = currentBalance - cost + Number(selectedSkin.value ?? 0);
+
+  await env.DB.batch([
+    env.DB.prepare("UPDATE users SET balance = ? WHERE id = ?").bind(nextBalance, session.user.id),
+    env.DB.prepare(
+      "INSERT INTO inventory (user_id, item_name, item_rarity, item_wear, item_icon, item_value, dropped_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    ).bind(
+      session.user.id,
+      String(selectedSkin.name),
+      String(selectedSkin.rarity || "Mil-Spec"),
+      String(selectedSkin.wear || "Field-Tested"),
+      String(selectedSkin.icon || ""),
+      Number(selectedSkin.value || 0),
+      now,
+    ),
+  ]);
+
+  return json({
+    ok: true,
+    drop: { ...selectedSkin, droppedAt: now },
+    profile: await getProfile(env, session.user.id),
+  });
+}
