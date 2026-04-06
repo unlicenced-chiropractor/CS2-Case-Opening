@@ -6,13 +6,13 @@
       <button
         v-for="tab in tabs"
         :key="tab.id"
-        class="relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all"
+        class="relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all duration-200"
         :class="[
           activeTab === tab.id
             ? 'text-white'
             : tab.soon
               ? 'cursor-not-allowed text-zinc-700'
-              : 'text-zinc-500 hover:text-zinc-300',
+              : 'text-zinc-500 hover:text-zinc-300 hover:scale-[1.02]',
         ]"
         :disabled="tab.soon"
         @click="!tab.soon && (activeTab = tab.id)"
@@ -35,7 +35,7 @@
         <!-- Active underline -->
         <span
           v-if="activeTab === tab.id"
-          class="absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-amber-400"
+          class="absolute inset-x-0 bottom-0 h-[2px] rounded-full accent-underline"
         ></span>
       </button>
     </div>
@@ -43,12 +43,12 @@
     <!-- ── TAB CONTENT ───────────────────────────────────────── -->
     <Transition
       mode="out-in"
-      enter-active-class="transition-all duration-200"
-      enter-from-class="opacity-0 translate-y-1"
+      enter-active-class="transition-all duration-300 ease-out"
+      enter-from-class="opacity-0 translate-y-3"
       enter-to-class="opacity-100 translate-y-0"
-      leave-active-class="transition-all duration-150"
+      leave-active-class="transition-all duration-200 ease-in"
       leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 translate-y-1"
+      leave-to-class="opacity-0 -translate-y-2"
     >
       <CaseOpenView  v-if="activeTab === 'open'"          key="open" />
       <InventoryView v-else-if="activeTab === 'inventory'" key="inventory" />

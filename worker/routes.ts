@@ -18,6 +18,7 @@ import { post as adminRevokeResetLinkPost } from "./api/admin/revoke-reset-link/
 import { post as adminSetAdminPost } from "./api/admin/set-admin/post";
 import { post as adminDeleteUserPost } from "./api/admin/delete-user/post";
 import { post as adminUpdateBalancePost } from "./api/admin/update-balance/post";
+import { post as deleteAccountPost } from "./api/delete-account/post";
 
 export const routes: RouteEntry[] = [
   { method: "GET", path: "/api/health", handler: healthGet },
@@ -27,6 +28,7 @@ export const routes: RouteEntry[] = [
   { method: "GET", path: "/api/me", handler: meGet },
   { method: "GET", path: "/api/admin/me", handler: adminMeGet },
   { method: "POST", path: "/api/logout", handler: logoutPost },
+  { method: "POST", path: "/api/delete-account", handler: deleteAccountPost },
   { method: "POST", path: "/api/open-case", handler: openCasePost },
   { method: "POST", path: "/api/claim-stipend", handler: claimStipendPost },
   { method: "POST", path: "/api/sell-item", handler: sellItemPost },

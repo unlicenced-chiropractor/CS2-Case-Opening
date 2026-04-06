@@ -187,7 +187,7 @@
           <!-- Upgrade button -->
           <button
             class="w-full rounded-xl py-3 text-sm font-bold uppercase tracking-widest transition-all disabled:cursor-not-allowed disabled:opacity-40"
-            :class="canUpgrade ? 'bg-amber-400 text-black shadow-lg shadow-amber-500/20 hover:bg-amber-300' : 'bg-white/5 text-zinc-600'"
+            :class="canUpgrade ? 'accent-bg text-black accent-shadow shadow-lg transition-all duration-200 hover:brightness-110 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--cs-ring)/0.45)] focus:ring-offset-2 focus:ring-offset-[#0d0d0d]' : 'bg-white/5 text-zinc-600'"
             :disabled="!canUpgrade || spinning"
             @click="doUpgrade"
           >

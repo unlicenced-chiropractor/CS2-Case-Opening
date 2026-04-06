@@ -28,7 +28,7 @@
 
       <div class="mt-6 flex flex-col items-center gap-2">
         <button
-          class="relative overflow-hidden rounded-xl bg-amber-400 px-10 py-3 text-sm font-bold uppercase tracking-widest text-black shadow-lg shadow-amber-500/20 transition-all hover:bg-amber-300 hover:shadow-amber-400/30 disabled:cursor-not-allowed disabled:opacity-40"
+          class="relative overflow-hidden rounded-xl accent-bg px-10 py-3 text-sm font-bold uppercase tracking-widest text-black accent-shadow shadow-lg transition-all duration-200 hover:brightness-110 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--cs-ring)/0.5)] focus:ring-offset-2 focus:ring-offset-[#0d0d0d]"
           :disabled="!canOpen || spinning"
           @click="openCase"
         >
@@ -41,7 +41,7 @@
           </span>
         </button>
         <p v-if="!state.user" class="text-xs text-zinc-600">
-          <RouterLink to="/auth" class="text-amber-400 hover:underline">Sign in</RouterLink> to open cases
+          <RouterLink to="/auth" class="accent-text underline-offset-2 transition-colors duration-200 hover:underline">Sign in</RouterLink> to open cases
         </p>
         <p v-else-if="balance < caseCost" class="text-xs text-zinc-500">
           Not enough credits — stipend tops you up when balance is below $5
@@ -101,11 +101,11 @@
         </div>
         <div class="flex items-center justify-between">
           <span class="text-sm text-zinc-400">Balance</span>
-          <span class="text-base font-bold text-amber-400">${{ balance.toFixed(2) }}</span>
+          <span class="text-base font-bold accent-text">${{ balance.toFixed(2) }}</span>
         </div>
         <div class="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
           <div
-            class="h-full rounded-full bg-amber-400 transition-all duration-700"
+            class="h-full rounded-full accent-bg transition-all duration-700"
             :style="{ width: `${Math.min(balance / 200 * 100, 100)}%` }"
           ></div>
         </div>

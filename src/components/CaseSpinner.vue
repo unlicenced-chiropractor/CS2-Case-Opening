@@ -8,9 +8,9 @@
       <div class="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[#0d0d0d] to-transparent"></div>
 
       <div class="pointer-events-none absolute inset-y-0 left-1/2 z-20 flex -translate-x-1/2 flex-col items-center">
-        <div class="h-0 w-0 border-l-[6px] border-r-[6px] border-b-[10px] border-l-transparent border-r-transparent border-b-amber-400"></div>
-        <div class="w-[2px] flex-1 bg-amber-400/80" style="box-shadow:0 0 8px 2px rgba(251,191,36,0.5);"></div>
-        <div class="h-0 w-0 border-l-[6px] border-r-[6px] border-t-[10px] border-l-transparent border-r-transparent border-t-amber-400"></div>
+        <div class="cs-spin-needle-b h-0 w-0 border-l-[6px] border-r-[6px] border-b-[10px] border-l-transparent border-r-transparent"></div>
+        <div class="cs-spin-needle-bar w-[2px] flex-1"></div>
+        <div class="cs-spin-needle-t h-0 w-0 border-l-[6px] border-r-[6px] border-t-[10px] border-l-transparent border-r-transparent"></div>
       </div>
 
       <div class="absolute inset-y-0 flex items-center" style="left: 12px;">

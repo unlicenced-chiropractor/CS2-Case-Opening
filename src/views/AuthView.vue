@@ -7,7 +7,7 @@
 
         <!-- Logo / heading -->
         <div class="mb-8 text-center">
-          <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-400 shadow-lg shadow-amber-500/30">
+          <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl accent-bg accent-shadow shadow-lg animate-float-slow">
             <svg class="h-6 w-6 text-black" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
             </svg>
@@ -23,7 +23,7 @@
           <button
             class="rounded-lg py-2 text-sm font-semibold transition-all"
             :class="mode === 'login'
-              ? 'bg-amber-400 text-black shadow shadow-amber-500/20'
+              ? 'accent-bg text-black accent-shadow shadow'
               : 'text-zinc-500 hover:text-zinc-300'"
             @click="mode = 'login'; clearMessages(); emailDirty = false"
           >
@@ -32,7 +32,7 @@
           <button
             class="rounded-lg py-2 text-sm font-semibold transition-all"
             :class="mode === 'register'
-              ? 'bg-amber-400 text-black shadow shadow-amber-500/20'
+              ? 'accent-bg text-black accent-shadow shadow'
               : 'text-zinc-500 hover:text-zinc-300'"
             @click="mode = 'register'; clearMessages(); emailDirty = false"
           >
@@ -47,7 +47,7 @@
             <div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
               <svg
                 class="h-4 w-4 transition-colors"
-                :class="emailDirty && !emailValid ? 'text-rose-500' : 'text-zinc-600 group-focus-within:text-amber-400'"
+                :class="emailDirty && !emailValid ? 'text-rose-500' : 'text-zinc-600 group-focus-within:text-[var(--cs-accent)]'"
                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
               >
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
@@ -62,7 +62,7 @@
               class="w-full rounded-xl border bg-black/40 py-3 pl-10 pr-10 text-sm text-zinc-100 placeholder-zinc-600 outline-none transition-all focus:bg-black/60 focus:ring-1"
               :class="emailDirty && !emailValid
                 ? 'border-rose-500/60 focus:border-rose-500/80 focus:ring-rose-500/20'
-                : 'border-white/8 focus:border-amber-400/60 focus:ring-amber-400/20'"
+                : 'border-white/8 focus:border-[var(--cs-accent-border)] focus:ring-[rgb(var(--cs-ring)/0.2)]'"
               @blur="emailDirty = true"
             />
             <!-- Valid tick -->
@@ -86,7 +86,7 @@
           <!-- Password -->
           <div class="group relative">
             <div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-              <svg class="h-4 w-4 text-zinc-600 group-focus-within:text-amber-400 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg class="h-4 w-4 text-zinc-600 transition-colors group-focus-within:text-[var(--cs-accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
@@ -96,7 +96,7 @@
               type="password"
               placeholder="Password"
               autocomplete="current-password"
-              class="w-full rounded-xl border border-white/8 bg-black/40 py-3 pl-10 pr-4 text-sm text-zinc-100 placeholder-zinc-600 outline-none transition-all focus:border-amber-400/60 focus:bg-black/60 focus:ring-1 focus:ring-amber-400/20"
+              class="w-full rounded-xl border border-white/8 bg-black/40 py-3 pl-10 pr-4 text-sm text-zinc-100 placeholder-zinc-600 outline-none transition-all duration-200 focus:border-[var(--cs-accent-border)] focus:bg-black/60 focus:ring-1 focus:ring-[rgb(var(--cs-ring)/0.2)]"
             />
           </div>
 
@@ -107,7 +107,7 @@
           <!-- Submit -->
           <button
             type="submit"
-            class="mt-2 w-full rounded-xl bg-amber-400 py-3 text-sm font-bold uppercase tracking-widest text-black shadow-lg shadow-amber-500/20 transition-all hover:bg-amber-300 hover:shadow-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+            class="mt-2 w-full rounded-xl accent-bg py-3 text-sm font-bold uppercase tracking-widest text-black accent-shadow shadow-lg transition-all duration-200 hover:brightness-110 hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--cs-ring)/0.45)] focus:ring-offset-2 focus:ring-offset-[#0d0d0d]"
             :disabled="state.loading"
           >
             <span v-if="!state.loading">{{ mode === "register" ? "Create Account" : "Sign In" }}</span>
@@ -151,11 +151,12 @@
 
 <script setup>
 import { computed, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useUserState } from "../lib/userState";
 
 const { register, login, state } = useUserState();
 const router = useRouter();
+const route = useRoute();
 const email = ref("");
 const password = ref("");
 const mode = ref("login");
@@ -199,6 +200,9 @@ async function submitAuth() {
       ? "Account created! Redirecting..."
       : "Signed in! Redirecting...";
 
-  setTimeout(() => router.push("/"), 350);
+  const raw = route.query.redirect;
+  const redirect =
+    typeof raw === "string" && raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
+  setTimeout(() => router.push(redirect), 350);
 }
 </script>

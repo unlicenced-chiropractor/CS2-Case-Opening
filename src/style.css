@@ -1,5 +1,266 @@
 @import "tailwindcss";
 
+/* ── Theme tokens (accent-bg / accent ring — match user design rules) ── */
+html[data-theme="amber"] {
+    --cs-accent: #fbbf24;
+    --cs-accent-500: #f59e0b;
+    --cs-accent-600: #d97706;
+    --cs-accent-soft: rgba(251, 191, 36, 0.14);
+    --cs-accent-border: rgba(251, 191, 36, 0.45);
+    --cs-accent-glow: rgba(245, 158, 11, 0.14);
+    --cs-accent-shadow: rgba(245, 158, 11, 0.22);
+    --cs-ring: 245 158 11;
+}
+
+html[data-theme="cyan"] {
+    --cs-accent: #22d3ee;
+    --cs-accent-500: #06b6d4;
+    --cs-accent-600: #0891b2;
+    --cs-accent-soft: rgba(34, 211, 238, 0.14);
+    --cs-accent-border: rgba(34, 211, 238, 0.45);
+    --cs-accent-glow: rgba(6, 182, 212, 0.16);
+    --cs-accent-shadow: rgba(6, 182, 212, 0.25);
+    --cs-ring: 6 182 212;
+}
+
+html[data-theme="violet"] {
+    --cs-accent: #c4b5fd;
+    --cs-accent-500: #8b5cf6;
+    --cs-accent-600: #7c3aed;
+    --cs-accent-soft: rgba(139, 92, 246, 0.16);
+    --cs-accent-border: rgba(139, 92, 246, 0.5);
+    --cs-accent-glow: rgba(139, 92, 246, 0.18);
+    --cs-accent-shadow: rgba(124, 58, 237, 0.28);
+    --cs-ring: 139 92 246;
+}
+
+html[data-theme="emerald"] {
+    --cs-accent: #34d399;
+    --cs-accent-500: #10b981;
+    --cs-accent-600: #059669;
+    --cs-accent-soft: rgba(16, 185, 129, 0.14);
+    --cs-accent-border: rgba(16, 185, 129, 0.45);
+    --cs-accent-glow: rgba(16, 185, 129, 0.15);
+    --cs-accent-shadow: rgba(5, 150, 105, 0.25);
+    --cs-ring: 16 185 129;
+}
+
+html[data-theme="rose"] {
+    --cs-accent: #fb7185;
+    --cs-accent-500: #f43f5e;
+    --cs-accent-600: #e11d48;
+    --cs-accent-soft: rgba(244, 63, 94, 0.14);
+    --cs-accent-border: rgba(244, 63, 94, 0.45);
+    --cs-accent-glow: rgba(244, 63, 94, 0.16);
+    --cs-accent-shadow: rgba(225, 29, 72, 0.26);
+    --cs-ring: 244 63 94;
+}
+
+@layer utilities {
+    .accent-text {
+        color: var(--cs-accent);
+    }
+    .accent-text-500 {
+        color: var(--cs-accent-500);
+    }
+    .accent-bg {
+        background-color: var(--cs-accent-500);
+    }
+    .accent-bg-hover:hover {
+        background-color: var(--cs-accent-600);
+    }
+    .accent-border {
+        border-color: var(--cs-accent-border);
+    }
+    .accent-soft-bg {
+        background-color: var(--cs-accent-soft);
+    }
+    .accent-shadow {
+        box-shadow: 0 10px 40px -10px var(--cs-accent-shadow);
+    }
+    .accent-ring-focus:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px #080808, 0 0 0 4px rgb(var(--cs-ring) / 0.45);
+    }
+    .accent-underline {
+        background: linear-gradient(
+            90deg,
+            var(--cs-accent-500),
+            var(--cs-accent),
+            var(--cs-accent-500)
+        );
+        background-size: 200% 100%;
+        animation: accent-shimmer 3s ease-in-out infinite;
+    }
+}
+
+@keyframes accent-shimmer {
+    0%,
+    100% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+@keyframes float-y {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-6px);
+    }
+}
+
+@keyframes pulse-glow {
+    0%,
+    100% {
+        opacity: 0.5;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+@keyframes gradient-drift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@keyframes shimmer-sweep {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+.animate-float-slow {
+    animation: float-y 5s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+    animation: pulse-glow 3s ease-in-out infinite;
+}
+
+/* Page transition (used in App.vue) */
+.page-enter-active,
+.page-leave-active {
+    transition:
+        opacity 0.28s ease,
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.page-enter-from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+}
+.page-leave-to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.99);
+}
+
+/* Stagger children — set --stagger-delay on each child */
+.stagger-children > * {
+    animation: stagger-fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--stagger, 0) * 55ms);
+}
+
+@keyframes stagger-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Modal backdrop */
+.modal-backdrop-enter-active,
+.modal-backdrop-leave-active {
+    transition: opacity 0.2s ease;
+}
+.modal-backdrop-enter-from,
+.modal-backdrop-leave-to {
+    opacity: 0;
+}
+
+.modal-panel-enter-active {
+    transition:
+        opacity 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.modal-panel-leave-active {
+    transition:
+        opacity 0.15s ease,
+        transform 0.15s ease;
+}
+.modal-panel-enter-from {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+}
+.modal-panel-leave-to {
+    opacity: 0;
+    transform: scale(0.96);
+}
+
+/* Nav bar subtle animated gradient line */
+.nav-glow-line {
+    background: linear-gradient(
+        90deg,
+        transparent,
+        var(--cs-accent-glow),
+        transparent
+    );
+    background-size: 200% 100%;
+    animation: gradient-drift 8s ease infinite;
+}
+
+/* Theme card shimmer on hover */
+.theme-card-shimmer {
+    position: relative;
+    overflow: hidden;
+}
+.theme-card-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        105deg,
+        transparent 40%,
+        rgba(255, 255, 255, 0.06) 50%,
+        transparent 60%
+    );
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+}
+.theme-card-shimmer:hover::after {
+    transform: translateX(100%);
+}
+
+/* Case spinner needle (theme-aware) */
+.cs-spin-needle-b {
+    border-bottom-color: var(--cs-accent-500) !important;
+}
+.cs-spin-needle-t {
+    border-top-color: var(--cs-accent-500) !important;
+}
+.cs-spin-needle-bar {
+    background-color: color-mix(in srgb, var(--cs-accent-500) 85%, transparent);
+    box-shadow: 0 0 10px 2px var(--cs-accent-glow);
+}
+
 @layer base {
     *,
     *::before,
@@ -22,12 +283,24 @@
         background-color: #080808;
         background-image:
             radial-gradient(
-                ellipse 80% 50% at 50% -10%,
-                rgba(245, 158, 11, 0.08) 0%,
-                transparent 70%
+                ellipse 90% 55% at 50% -15%,
+                var(--cs-accent-glow) 0%,
+                transparent 65%
+            ),
+            radial-gradient(
+                ellipse 60% 40% at 100% 50%,
+                color-mix(in srgb, var(--cs-accent-glow) 35%, transparent) 0%,
+                transparent 50%
+            ),
+            radial-gradient(
+                ellipse 50% 35% at 0% 80%,
+                color-mix(in srgb, var(--cs-accent-glow) 25%, transparent) 0%,
+                transparent 45%
             ),
             url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-        color: #e5e7eb;
+        background-size: 100% 100%, 100% 100%, 100% 100%, 200px 200px;
+        animation: gradient-drift 18s ease infinite;
+        color: #ffffff;
         min-height: 100dvh;
         -webkit-font-smoothing: antialiased;
     }
@@ -50,12 +323,10 @@
     box-shadow: 0 0 18px 3px rgba(251, 191, 36, 0.45);
 }
 
-/* Spinner animation override — smoother cubic bezier */
 .spin-ease {
     transition-timing-function: cubic-bezier(0.05, 0.85, 0.3, 1);
 }
 
-/* Scrollbar */
 ::-webkit-scrollbar {
     width: 4px;
     height: 4px;
@@ -64,9 +335,9 @@
     background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-    background: #2a2a2a;
+    background: color-mix(in srgb, var(--cs-accent-500) 35%, #2a2a2a);
     border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-    background: #3a3a3a;
+    background: color-mix(in srgb, var(--cs-accent-500) 55%, #3a3a3a);
 }

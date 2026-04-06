@@ -106,6 +106,16 @@ async function signOutUser() {
   state.stipendMessage = "";
 }
 
+/** Permanently delete the signed-in account (server cascades related rows). */
+async function deleteAccount() {
+  await apiFetch("/api/delete-account", { method: "POST", body: "{}" });
+  stopStipendWatcher();
+  setToken("");
+  state.user = null;
+  state.profile = null;
+  state.stipendMessage = "";
+}
+
 async function upgradeItem(inputId, targetName) {
   if (!state.user || !state.profile) {
     throw new Error("Sign in to upgrade items.");
@@ -192,6 +202,7 @@ export function useUserState() {
     register,
     login,
     signOutUser,
+    deleteAccount,
     initAuth,
     openCaseRoll,
     sellItem,
