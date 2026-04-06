@@ -199,6 +199,9 @@ export default {
       if (url.pathname === "/api/sell-bulk" && request.method === "POST") {
         return await sellBulk(request, env);
       }
+      if (url.pathname === "/api/upgrade" && request.method === "POST") {
+        return await upgradeItem(request, env);
+      }
       return json({ error: "Not found" }, 404);
     } catch (err) {
       const status = Number.isInteger(err?.status) ? err.status : 500;
@@ -427,6 +430,132 @@ async function sellItem(request, env) {
     soldValue: saleValue,
     profile: await getProfile(env, session.user.id),
   });
+}
+
+// Rarity upgrade ladder — maps each tier to the next one up
+const UPGRADE_LADDER = {
+  "Mil-Spec": "Restricted",
+  Restricted: "Classified",
+  Classified: "Covert",
+  Covert: "Rare Special",
+};
+
+// Default value per rarity tier used to compute win chance when
+// the input item has an unusually low or high value.
+const RARITY_BASE_VALUE = {
+  "Mil-Spec": 2.5,
+  Restricted: 7.0,
+  Classified: 15.0,
+  Covert: 40.0,
+  "Rare Special": 500.0,
+};
+
+async function upgradeItem(request, env) {
+  const session = await requireSession(request, env);
+  const body = await request.json();
+  const inventoryId = Number(body.inventoryId);
+
+  if (!Number.isInteger(inventoryId) || inventoryId <= 0) {
+    return json({ error: "Invalid inventory item." }, 400);
+  }
+
+  // Load the item and verify ownership + unsold
+  const item = await env.DB.prepare(
+    "SELECT id, item_rarity, item_value, sold_at FROM inventory WHERE id = ? AND user_id = ?",
+  )
+    .bind(inventoryId, session.user.id)
+    .first();
+
+  if (!item) return json({ error: "Item not found." }, 404);
+  if (item.sold_at !== null) return json({ error: "Item already sold." }, 409);
+
+  const inputRarity = String(item.item_rarity);
+  const targetRarity = UPGRADE_LADDER[inputRarity];
+  if (!targetRarity) {
+    return json(
+      { error: "Rare Special items cannot be upgraded further." },
+      400,
+    );
+  }
+
+  // Win chance = clamp(inputValue / targetBaseValue * 100, 5, 90)
+  const inputValue = Number(item.item_value);
+  const targetBase = RARITY_BASE_VALUE[targetRarity];
+  const rawChance = (inputValue / targetBase) * 100;
+  const winChance = Math.min(90, Math.max(5, rawChance));
+
+  const roll = Math.random() * 100;
+  const success = roll < winChance;
+  const now = Date.now();
+
+  if (success) {
+    // Roll a new skin of the target rarity from the catalog
+    const catalog = await getCatalog(env);
+    const pool = catalog.skins.filter((s) => s.rarity === targetRarity);
+    const skinPool = pool.length ? pool : catalog.skins;
+    const newSkin = skinPool[Math.floor(Math.random() * skinPool.length)];
+    const wear = weightedPick(WEAR_TABLE);
+    const wearMultiplier =
+      {
+        "Factory New": 1.2,
+        "Minimal Wear": 1.1,
+        "Field-Tested": 1,
+        "Well-Worn": 0.85,
+        "Battle-Scarred": 0.72,
+      }[wear.name] ?? 1;
+    const newValue = Number(
+      (RARITY_BASE_VALUE[targetRarity] * wearMultiplier).toFixed(2),
+    );
+
+    await env.DB.batch([
+      // Mark input item sold (consumed)
+      env.DB.prepare("UPDATE inventory SET sold_at = ? WHERE id = ?").bind(
+        now,
+        inventoryId,
+      ),
+      // Insert the new upgraded item
+      env.DB.prepare(
+        "INSERT INTO inventory (user_id, item_name, item_rarity, item_wear, item_icon, item_value, dropped_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      ).bind(
+        session.user.id,
+        String(newSkin.name),
+        targetRarity,
+        wear.name,
+        String(newSkin.icon || ""),
+        newValue,
+        now,
+      ),
+    ]);
+
+    return json({
+      ok: true,
+      success: true,
+      winChance: Number(winChance.toFixed(1)),
+      roll: Number(roll.toFixed(1)),
+      reward: {
+        name: newSkin.name,
+        rarity: targetRarity,
+        wear: wear.name,
+        icon: newSkin.icon,
+        value: newValue,
+      },
+      profile: await getProfile(env, session.user.id),
+    });
+  } else {
+    // Failed — consume the item, no reward
+    await env.DB.prepare("UPDATE inventory SET sold_at = ? WHERE id = ?")
+      .bind(now, inventoryId)
+      .run();
+
+    return json({
+      ok: true,
+      success: false,
+      winChance: Number(winChance.toFixed(1)),
+      roll: Number(roll.toFixed(1)),
+      reward: null,
+      profile: await getProfile(env, session.user.id),
+    });
+  }
 }
 
 async function sellBulk(request, env) {
