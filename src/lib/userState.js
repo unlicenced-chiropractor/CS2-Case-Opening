@@ -157,9 +157,6 @@ async function openCaseRoll(cost) {
       cost,
     }),
   });
-  // Do NOT apply data.profile here — callers (HomeView) are responsible for
-  // applying it at the right moment so the inventory/balance don't spoil
-  // the spinner result before the animation finishes.
   return { drop: data.drop, profile: data.profile };
 }
 

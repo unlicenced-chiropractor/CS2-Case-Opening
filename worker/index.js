@@ -1,3 +1,66 @@
+const CASE_COST = 10;
+const STIPEND_INTERVAL_MS = 15 * 60 * 1000;
+const STIPEND_THRESHOLD = 5;
+const STIPEND_AMOUNT = 100;
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const RESET_LINK_TTL_MS = 24 * 60 * 60 * 1000;
+const CATALOG_CACHE_TTL_MS = 10 * 60 * 1000;
+const BYMYKEL_SKINS_URL = "https://bymykel.github.io/CSGO-API/items.json";
+
+const WEAR_TABLE = [
+  { name: "Factory New", short: "FN", weight: 15 },
+  { name: "Minimal Wear", short: "MW", weight: 24 },
+  { name: "Field-Tested", short: "FT", weight: 35 },
+  { name: "Well-Worn", short: "WW", weight: 16 },
+  { name: "Battle-Scarred", short: "BS", weight: 10 },
+];
+
+const RARITY_WEIGHTS = [
+  { rarity: "Mil-Spec", weight: 55 },
+  { rarity: "Restricted", weight: 28 },
+  { rarity: "Classified", weight: 12 },
+  { rarity: "Covert", weight: 4.5 },
+  { rarity: "Rare Special", weight: 0.5 },
+];
+
+const SKINS = [
+  {
+    name: "AK-47 | Redline",
+    rarity: "Classified",
+    value: 14.8,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/ak-47-redline.png",
+  },
+  {
+    name: "M4A1-S | Decimator",
+    rarity: "Classified",
+    value: 18.7,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/m4a1-s-decimator.png",
+  },
+  {
+    name: "AWP | Neo-Noir",
+    rarity: "Covert",
+    value: 39.25,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/awp-neo-noir.png",
+  },
+  {
+    name: "USP-S | Cortex",
+    rarity: "Restricted",
+    value: 7.15,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/usp-s-cortex.png",
+  },
+  {
+    name: "★ Karambit | Doppler",
+    rarity: "Rare Special",
+    value: 980,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/karambit-doppler-factory-new.png",
+  },
+];
+
+let catalogCache = {
+  loadedAt: 0,
+  skins: SKINS,
+};
+
 export default {
   async fetch(request, env) {
     if (
@@ -64,8 +127,20 @@ export default {
       if (url.pathname === "/api/sell-item" && request.method === "POST") {
         return await sellItem(request, env);
       }
+      if (url.pathname === "/api/sell-bulk" && request.method === "POST") {
+        return await sellBulk(request, env);
+      }
       if (url.pathname === "/api/admin/users" && request.method === "GET") {
         return await adminUsers(request, env);
+      }
+      if (url.pathname === "/api/admin/create-reset-link" && request.method === "POST") {
+        return await createResetLink(request, env);
+      }
+      if (url.pathname === "/api/admin/list-reset-links" && request.method === "GET") {
+        return await listResetLinks(request, env);
+      }
+      if (url.pathname === "/api/admin/revoke-reset-link" && request.method === "POST") {
+        return await revokeResetLink(request, env);
       }
       if (url.pathname === "/api/admin/set-admin" && request.method === "POST") {
         return await setAdmin(request, env);
@@ -128,7 +203,7 @@ async function login(request, env) {
   const email = normalizeEmail(body.email);
   const password = String(body.password || "");
   const user = await env.DB.prepare(
-    "SELECT id, email, password_hash, salt, COALESCE(is_admin, 0) AS is_admin FROM users WHERE email = ?",
+    "SELECT id, email, password_hash, salt, COALESCE(is_admin, 0) AS is_admin, COALESCE(last_login_at, 0) AS last_login_at FROM users WHERE email = ?",
   )
     .bind(email)
     .first();
@@ -460,7 +535,7 @@ async function adminUsers(request, env) {
   const session = await requireAdmin(request, env);
 
   const rows = await env.DB.prepare(
-    "SELECT id, email, COALESCE(is_admin, 0) AS is_admin, created_at FROM users ORDER BY created_at DESC",
+    "SELECT id, email, COALESCE(is_admin, 0) AS is_admin, COALESCE(balance, 0) AS balance, COALESCE(last_login_at, 0) AS last_login_at, created_at FROM users ORDER BY created_at DESC",
   )
     .all();
 
@@ -468,6 +543,8 @@ async function adminUsers(request, env) {
     id: row.id,
     email: row.email,
     isAdmin: asBoolean(row.is_admin),
+    balance: Number(row.balance ?? 0),
+    lastLoginAt: Number(row.last_login_at ?? 0),
     createdAt: Number(row.created_at ?? 0),
   }));
 
@@ -504,7 +581,7 @@ async function setAdmin(request, env) {
     .run();
 
   const refreshed = await env.DB.prepare(
-    "SELECT id, email, COALESCE(is_admin, 0) AS is_admin, created_at FROM users WHERE id = ?",
+    "SELECT id, email, COALESCE(is_admin, 0) AS is_admin, COALESCE(balance, 0) AS balance, COALESCE(last_login_at, 0) AS last_login_at, created_at FROM users WHERE id = ?",
   )
     .bind(userId)
     .first();
@@ -515,6 +592,8 @@ async function setAdmin(request, env) {
       id: refreshed.id,
       email: refreshed.email,
       isAdmin: asBoolean(refreshed.is_admin),
+      balance: Number(refreshed.balance ?? 0),
+      lastLoginAt: Number(refreshed.last_login_at ?? 0),
       createdAt: Number(refreshed.created_at ?? 0),
     },
     actor: {
@@ -589,6 +668,122 @@ async function updateBalance(request, env) {
       balance: Number(refreshed.balance ?? 0),
       lastLoginAt: Number(refreshed.last_login_at ?? 0),
       createdAt: Number(refreshed.created_at ?? 0),
+    },
+  });
+}
+
+async function createResetLink(request, env) {
+  const session = await requireAdmin(request, env);
+  const body = await request.json();
+  const userId = String(body.userId || "").trim();
+
+  if (!userId) {
+    throwObjectStatus("Missing userId.", 400);
+  }
+
+  const user = await env.DB.prepare("SELECT id, email FROM users WHERE id = ?")
+    .bind(userId)
+    .first();
+
+  if (!user) {
+    throwObjectStatus("User not found.", 404);
+  }
+
+  let tokenData = await env.DB.prepare(
+    "SELECT token, expires_at FROM password_reset_tokens WHERE user_id = ? AND used = 0 AND revoked = 0 AND expires_at > ? ORDER BY created_at DESC LIMIT 1",
+  )
+    .bind(userId, Date.now())
+    .first();
+
+  if (!tokenData) {
+    const now = Date.now();
+    const expiresAt = now + RESET_LINK_TTL_MS;
+    const token = randomToken(48);
+
+    await env.DB.prepare(
+      "INSERT INTO password_reset_tokens (token, user_id, email, expires_at, used, revoked, created_at) VALUES (?, ?, ?, ?, 0, 0, ?)",
+    )
+      .bind(token, userId, user.email, expiresAt, now)
+      .run();
+
+    tokenData = { token, expiresAt: expiresAt };
+
+  }
+
+  const token = String(tokenData.token);
+  const requestUrl = new URL(request.url);
+  const base = `${requestUrl.protocol}://${requestUrl.host}`;
+
+  return json({
+    ok: true,
+    userId,
+    email: user.email,
+    token,
+    expiresAt: Number(tokenData.expiresAt ?? 0),
+    resetLink: `${base}/reset-password?token=${encodeURIComponent(token)}`,
+    actor: {
+      id: session.user.id,
+      email: session.user.email,
+    },
+  });
+}
+
+async function listResetLinks(request, env) {
+  const session = await requireAdmin(request, env);
+  void session;
+
+  const rows = await env.DB.prepare(
+    "SELECT token, user_id, email, expires_at, used, revoked, created_at FROM password_reset_tokens ORDER BY created_at DESC",
+  ).all();
+
+  const now = Date.now();
+  const links = (rows.results || []).map((row) => {
+    const revoked = Number(row.revoked ?? 0) === 1;
+    const used = Number(row.used ?? 0) === 1;
+    const expiresAt = Number(row.expires_at ?? 0);
+
+    return {
+      token: row.token,
+      userId: row.user_id,
+      email: row.email,
+      used,
+      revoked,
+      isActive: !revoked && !used && expiresAt > now,
+      expiresAt,
+      createdAt: Number(row.created_at ?? 0),
+    };
+  });
+
+  return json({ links });
+}
+
+async function revokeResetLink(request, env) {
+  const session = await requireAdmin(request, env);
+  const body = await request.json();
+  const token = String(body.token || "").trim();
+
+  if (!token) {
+    throwObjectStatus("Missing token.", 400);
+  }
+
+  const row = await env.DB.prepare("SELECT token FROM password_reset_tokens WHERE token = ?")
+    .bind(token)
+    .first();
+
+  if (!row) {
+    throwObjectStatus("Reset token not found.", 404);
+  }
+
+  await env.DB.prepare("UPDATE password_reset_tokens SET revoked = 1 WHERE token = ?")
+    .bind(token)
+    .run();
+
+  return json({
+    ok: true,
+    token,
+    actor: {
+      id: session.user.id,
+      email: session.user.email,
     },
   });
 }
@@ -740,15 +935,68 @@ function mapBymykelSkinsToSkins(items) {
   return out;
 }
 
+async function proxyImage(url) {
+  const rawUrl = url.searchParams.get("url");
+  if (!rawUrl) {
+    return imageFallback("Missing image url.");
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(rawUrl);
+  } catch (_err) {
+    return imageFallback("Invalid image url.");
+  }
+
+  if (!isAllowedImageHost(parsed.hostname)) {
+    return imageFallback("Host not allowed.");
+  }
+
+  const response = await fetch(rawUrl, {
+    headers: {
+      "User-Agent": "CaseStrike/1.0",
+      "Accept": "image/avif,image/webp,image/*,*/*;q=0.8",
+    },
+  });
+
+  if (!response.ok || !response.body) {
+    return imageFallback(`Proxy failed: ${response.status}`);
+  }
+
+  const contentType = response.headers.get("content-type") || "image/jpeg";
+  const cacheControl = response.headers.get("cache-control") ?? "public, max-age=300";
+
+  return new Response(response.body, {
+    status: 200,
+    headers: {
+      "content-type": contentType,
+      "cache-control": cacheControl,
+      ...corsHeaders(),
+    },
+  });
+}
+
 function isAllowedImageHost(hostname) {
-  const allowed = [
+  const host = String(hostname || "").toLowerCase();
+  const exactAllowed = new Set([
     "community.cloudflare.steamstatic.com",
     "steamcdn-a.akamaihd.net",
     "raw.githubusercontent.com",
     "cdn.steamstatic.com",
     "community.akamai.steamstatic.com",
+    "cdn.csgoskins.gg",
+    "bymykel.github.io",
+    "i.imgur.com",
+  ]);
+
+  const suffixAllowed = [
+    "akamaihd.net",
+    "steamstatic.com",
   ];
-  return allowed.includes(hostname);
+
+  if (exactAllowed.has(host)) return true;
+
+  return suffixAllowed.some((suffix) => host === suffix || host.endsWith(`.${suffix}`));
 }
 
 function imageFallback(reason = "Image unavailable") {
