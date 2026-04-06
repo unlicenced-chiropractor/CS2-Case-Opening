@@ -6,7 +6,20 @@ CREATE TABLE IF NOT EXISTS users (
   is_admin INTEGER NOT NULL DEFAULT 0,
   balance REAL NOT NULL DEFAULT 25,
   last_stipend_at INTEGER NOT NULL DEFAULT 0,
+  last_login_at INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  token TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  email TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0,
+  revoked INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  used_at INTEGER DEFAULT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
