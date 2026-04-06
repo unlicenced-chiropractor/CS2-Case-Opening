@@ -1,252 +1,161 @@
 <template>
-  <div class="space-y-6">
+  <div class="space-y-5">
 
-    <!-- ── HEADER ───────────────────────────────────────────── -->
-    <div>
-      <h2 class="text-xl font-bold tracking-tight text-white">Skin Upgrader</h2>
-      <p class="mt-0.5 text-xs text-zinc-500">
-        Sacrifice a skin for a chance at a higher rarity. Higher value = better odds.
-      </p>
+    <!-- ── HEADER ─────────────────────────────────────────────── -->
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h2 class="text-xl font-bold tracking-tight text-white">Skin Upgrader</h2>
+        <p class="mt-0.5 text-xs text-zinc-500">
+          Pick a skin from your inventory to sacrifice, then choose a catalog skin to win.
+          Odds are based on value — the bigger the jump, the harder the roll.
+        </p>
+      </div>
+      <!-- tier-skip indicator -->
+      <div v-if="inputItem && targetSkin" class="flex items-center gap-2">
+        <span
+          v-for="n in 4" :key="n"
+          class="h-2 w-5 rounded-full transition-all duration-300"
+          :class="n <= tierSkip ? tierSkipDotColor : 'bg-white/8'"
+        ></span>
+        <span class="text-xs font-semibold" :class="tierSkipDotColor">{{ tierSkipLabel }}</span>
+      </div>
     </div>
 
-    <!-- ── MAIN AREA ─────────────────────────────────────────── -->
-    <div class="grid gap-4 lg:grid-cols-5">
+    <!-- ── THREE-COLUMN LAYOUT ──────────────────────────────────── -->
+    <div class="grid gap-3 lg:grid-cols-11">
 
-      <!-- Left: item picker -->
-      <div class="lg:col-span-2 rounded-2xl border border-white/8 bg-[#0d0d0d] p-4 space-y-3">
-        <p class="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
-          Select item to upgrade
-        </p>
+      <!-- ══ LEFT: SACRIFICE (inventory) ═══════════════════════ -->
+      <div class="lg:col-span-3 flex flex-col gap-3">
+        <div class="rounded-2xl border border-white/8 bg-[#0d0d0d] p-4 flex flex-col gap-3" style="min-height:520px;">
 
-        <!-- Guest / no items -->
-        <div
-          v-if="!state.user"
-          class="flex flex-col items-center justify-center gap-2 py-12 text-center"
-        >
-          <p class="text-sm text-zinc-600">Sign in to use the upgrader</p>
-        </div>
+          <p class="shrink-0 text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Sacrifice</p>
 
-        <div
-          v-else-if="!upgradableInventory.length"
-          class="flex flex-col items-center justify-center gap-2 py-12 text-center"
-        >
-          <p class="text-sm text-zinc-600">No upgradable items</p>
-          <p class="text-xs text-zinc-700">Rare Special items cannot be upgraded further</p>
-        </div>
-
-        <!-- Item list -->
-        <ul v-else class="max-h-[420px] space-y-1.5 overflow-y-auto pr-1">
-          <li
-            v-for="item in upgradableInventory"
-            :key="item.id"
-            class="flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition-all"
-            :class="selectedItem?.id === item.id
-              ? [rarityBorder(item.rarity), rarityActiveBg(item.rarity)]
-              : 'border-white/6 bg-white/3 hover:bg-white/6 hover:border-white/10'"
-            @click="selectItem(item)"
+          <!-- selected preview -->
+          <div
+            class="shrink-0 rounded-xl border p-3 flex items-center gap-3 min-h-[72px] transition-all"
+            :class="inputItem ? [rarityBorder(inputItem.rarity), rarityBg(inputItem.rarity)] : 'border-white/6 bg-white/3'"
           >
-            <img
-              :src="renderIcon(item.icon)"
-              :alt="item.name"
-              class="h-10 w-12 shrink-0 object-contain"
-              @error="onImgErr"
-            />
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-[11px] font-semibold text-zinc-100 leading-tight">{{ item.name }}</p>
-              <p class="text-[10px] leading-tight" :class="rarityLabel(item.rarity)">{{ item.rarity }}</p>
-              <p class="mt-0.5 text-[10px] text-zinc-500">{{ item.wear }}</p>
-            </div>
-            <div class="shrink-0 text-right">
-              <p class="text-xs font-bold text-white">${{ Number(item.value).toFixed(2) }}</p>
-              <p class="text-[10px] text-zinc-600 mt-0.5">
-                {{ upgradeChanceFor(item).toFixed(1) }}% win
-              </p>
-            </div>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Center: dial + upgrade button -->
-      <div class="lg:col-span-3 flex flex-col gap-4">
-
-        <!-- Upgrade arena -->
-        <div class="rounded-2xl border border-white/8 bg-[#0d0d0d] p-6 flex flex-col items-center gap-6">
-
-          <!-- Skins being compared -->
-          <div class="flex w-full items-center gap-4">
-
-            <!-- Input skin -->
-            <div
-              class="flex-1 rounded-xl border bg-[#111] p-3 flex flex-col items-center gap-2 transition-all"
-              :class="selectedItem ? rarityBorder(selectedItem.rarity) : 'border-white/6'"
-            >
-              <div
-                class="relative flex h-[2px] w-full rounded-full"
-                :class="selectedItem ? rarityBarBg(selectedItem.rarity) : 'bg-white/5'"
-              ></div>
-              <img
-                v-if="selectedItem"
-                :src="renderIcon(selectedItem.icon)"
-                :alt="selectedItem.name"
-                class="h-20 w-full object-contain drop-shadow-lg"
-                @error="onImgErr"
-              />
-              <div v-else class="h-20 w-full flex items-center justify-center">
-                <svg class="h-8 w-8 text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M12 5v14M5 12h14"/>
-                </svg>
+            <template v-if="inputItem">
+              <img :src="inputItem.icon" :alt="inputItem.name" class="h-10 w-12 shrink-0 object-contain" @error="onImgErr" />
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-[11px] font-semibold text-white leading-tight">{{ inputItem.name }}</p>
+                <p class="text-[10px]" :class="rarityLabel(inputItem.rarity)">{{ inputItem.rarity }}</p>
+                <p class="text-[10px] text-zinc-500">{{ inputItem.wear }}</p>
               </div>
-              <div class="text-center w-full">
-                <p class="truncate text-[11px] font-semibold text-zinc-200 leading-tight">
-                  {{ selectedItem ? selectedItem.name : 'Select a skin' }}
-                </p>
-                <p class="text-[10px]" :class="selectedItem ? rarityLabel(selectedItem.rarity) : 'text-zinc-600'">
-                  {{ selectedItem ? selectedItem.rarity : '—' }}
-                </p>
-                <p v-if="selectedItem" class="text-[10px] font-bold text-white mt-0.5">
-                  ${{ Number(selectedItem.value).toFixed(2) }}
-                </p>
+              <div class="shrink-0 text-right">
+                <p class="text-xs font-bold text-white">${{ fmtVal(inputItem.value) }}</p>
+                <button class="mt-1 text-[10px] text-zinc-600 hover:text-rose-400 transition-colors" @click="clearInput">✕</button>
               </div>
-            </div>
-
-            <!-- Arrow + chance -->
-            <div class="flex flex-col items-center gap-2 shrink-0">
-              <div
-                class="flex h-10 w-10 items-center justify-center rounded-full border border-amber-400/30 bg-amber-400/10"
-              >
-                <svg class="h-5 w-5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M5 12h14M12 5l7 7-7 7"/>
-                </svg>
+            </template>
+            <template v-else>
+              <div class="flex h-10 w-12 shrink-0 items-center justify-center rounded-lg border border-dashed border-white/10">
+                <svg class="h-5 w-5 text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
               </div>
-              <div class="text-center">
-                <p v-if="selectedItem" class="text-lg font-black" :class="chanceColor">
-                  {{ winChance.toFixed(1) }}%
-                </p>
-                <p v-else class="text-lg font-black text-zinc-700">—%</p>
-                <p class="text-[10px] text-zinc-600">win chance</p>
-              </div>
-            </div>
-
-            <!-- Target skin (blurred until won) -->
-            <div
-              class="flex-1 rounded-xl border bg-[#111] p-3 flex flex-col items-center gap-2 transition-all"
-              :class="targetRarity ? rarityBorder(targetRarity) : 'border-white/6'"
-            >
-              <div
-                class="h-[2px] w-full rounded-full"
-                :class="targetRarity ? rarityBarBg(targetRarity) : 'bg-white/5'"
-              ></div>
-              <div class="relative h-20 w-full flex items-center justify-center">
-                <div
-                  v-if="targetRarity && !result"
-                  class="absolute inset-0 flex items-center justify-center"
-                >
-                  <!-- Question mark placeholder when nothing won yet -->
-                  <div
-                    class="flex h-14 w-14 items-center justify-center rounded-full border-2 border-dashed"
-                    :class="rarityBorder(targetRarity)"
-                  >
-                    <span class="text-2xl font-black" :class="rarityLabel(targetRarity)">?</span>
-                  </div>
-                </div>
-                <!-- Winning skin revealed -->
-                <img
-                  v-if="result?.success && result.reward"
-                  :src="renderIcon(result.reward.icon)"
-                  :alt="result.reward.name"
-                  class="h-20 w-full object-contain drop-shadow-lg"
-                  @error="onImgErr"
-                />
-              </div>
-              <div class="text-center w-full">
-                <p class="truncate text-[11px] font-semibold leading-tight"
-                  :class="result?.success ? 'text-zinc-200' : targetRarity ? rarityLabel(targetRarity) : 'text-zinc-600'">
-                  {{ result?.success ? result.reward.name : targetRarity ? targetRarity + ' Skin' : 'Unknown' }}
-                </p>
-                <p class="text-[10px]" :class="targetRarity ? rarityLabel(targetRarity) : 'text-zinc-600'">
-                  {{ targetRarity ?? '—' }}
-                </p>
-                <p v-if="result?.success" class="text-[10px] font-bold text-white mt-0.5">
-                  ${{ Number(result.reward.value).toFixed(2) }}
-                </p>
-              </div>
-            </div>
+              <p class="text-xs text-zinc-600">Choose a skin to sacrifice</p>
+            </template>
           </div>
 
-          <!-- ── DIAL ──────────────────────────────────────── -->
-          <div class="relative flex h-48 w-48 items-center justify-center">
-            <!-- Background ring -->
+          <!-- list -->
+          <div v-if="!state.user" class="flex flex-1 items-center justify-center">
+            <p class="text-sm text-zinc-600">Sign in to use the upgrader</p>
+          </div>
+          <div v-else-if="!sacrificeable.length" class="flex flex-1 flex-col items-center justify-center gap-1 text-center">
+            <p class="text-sm text-zinc-600">No items in inventory</p>
+            <p class="text-xs text-zinc-700">Open cases to get skins</p>
+          </div>
+          <ul v-else class="flex-1 overflow-y-auto space-y-1 pr-0.5" style="max-height:340px;">
+            <li
+              v-for="item in sacrificeable" :key="item.id"
+              class="flex cursor-pointer items-center gap-2.5 rounded-xl border px-2.5 py-2 transition-all"
+              :class="inputItem?.id === item.id
+                ? [rarityBorder(item.rarity), rarityBg(item.rarity)]
+                : 'border-white/6 bg-white/3 hover:border-white/10 hover:bg-white/6'"
+              @click="selectInput(item)"
+            >
+              <img :src="item.icon" :alt="item.name" class="h-8 w-10 shrink-0 object-contain" @error="onImgErr" />
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-[10px] font-semibold text-zinc-100 leading-tight">{{ item.name }}</p>
+                <p class="text-[9px]" :class="rarityLabel(item.rarity)">{{ item.rarity }}</p>
+              </div>
+              <span class="shrink-0 text-[10px] font-bold text-white">${{ fmtVal(item.value) }}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ══ CENTER: DIAL + BUTTON ══════════════════════════════ -->
+      <div class="lg:col-span-5 flex flex-col gap-3">
+
+        <!-- Arena -->
+        <div class="flex-1 rounded-2xl border border-white/8 bg-[#0d0d0d] p-6 flex flex-col items-center gap-5">
+
+          <!-- Big chance number -->
+          <div class="flex flex-col items-center gap-1">
+            <p
+              class="text-5xl font-black tabular-nums transition-all duration-300"
+              :class="inputItem && targetSkin ? chanceColor : 'text-zinc-700'"
+            >{{ inputItem && targetSkin ? winChance.toFixed(1) : '—' }}%</p>
+            <p class="text-xs text-zinc-600">win chance</p>
+            <p v-if="inputItem && targetSkin && tierSkip > 1" class="text-[10px] text-rose-400">
+              ×{{ penaltyMult.toFixed(2) }} penalty for {{ tierSkip }} tier jump
+            </p>
+          </div>
+
+          <!-- Dial -->
+          <div class="relative flex h-44 w-44 items-center justify-center">
             <svg class="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 200 200">
+              <!-- track -->
+              <circle cx="100" cy="100" r="84" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="14"/>
+              <!-- loss arc -->
               <circle
-                cx="100" cy="100" r="88"
-                fill="none"
-                stroke="rgba(255,255,255,0.05)"
-                stroke-width="12"
-              />
-              <!-- Win zone arc (green) -->
-              <circle
-                v-if="selectedItem"
-                cx="100" cy="100" r="88"
-                fill="none"
-                stroke="rgba(34,197,94,0.35)"
-                stroke-width="12"
-                stroke-linecap="round"
-                :stroke-dasharray="`${winArcLength} ${totalArcLength}`"
+                v-if="inputItem && targetSkin"
+                cx="100" cy="100" r="84" fill="none"
+                stroke="rgba(239,68,68,0.20)" stroke-width="14"
+                :stroke-dasharray="`${totalArc} ${totalArc}`"
                 stroke-dashoffset="0"
               />
-              <!-- Needle -->
-              <line
-                x1="100" y1="100"
-                :x2="needleX" :y2="needleY"
-                stroke="#f59e0b"
-                stroke-width="3"
-                stroke-linecap="round"
-                class="origin-center"
-                :style="{ transition: spinning ? 'none' : 'x2 0.05s, y2 0.05s' }"
+              <!-- win arc -->
+              <circle
+                v-if="inputItem && targetSkin"
+                cx="100" cy="100" r="84" fill="none"
+                stroke="rgba(34,197,94,0.40)" stroke-width="14"
+                stroke-linecap="butt"
+                :stroke-dasharray="`${winArc} ${totalArc}`"
+                stroke-dashoffset="0"
               />
             </svg>
 
-            <!-- Animated needle via CSS transform on an overlay -->
-            <div
-              class="absolute inset-0 flex items-center justify-center"
-              style="pointer-events:none;"
-            >
+            <!-- needle -->
+            <div class="absolute inset-0 flex items-center justify-center" style="pointer-events:none;">
               <div
                 ref="needleEl"
-                class="absolute"
-                style="width:2px; height:72px; top:28px; left:calc(50% - 1px); transform-origin:bottom center; border-radius:2px;"
-                :style="{ background: 'linear-gradient(to bottom, #f59e0b, transparent)' }"
+                class="absolute rounded-full"
+                style="width:3px;height:70px;top:30px;left:calc(50% - 1.5px);transform-origin:bottom center;background:linear-gradient(to bottom,#f59e0b 60%,transparent);"
               ></div>
             </div>
 
-            <!-- Center dot -->
-            <div class="z-10 flex h-12 w-12 flex-col items-center justify-center rounded-full border-2 border-white/10 bg-[#0d0d0d]">
-              <span v-if="!spinning && !result" class="text-[10px] text-zinc-600 leading-tight text-center">
-                {{ selectedItem ? 'Ready' : 'Pick' }}
-              </span>
-              <span v-else-if="spinning" class="text-[10px] text-amber-400 leading-tight text-center animate-pulse">
-                ...
-              </span>
+            <!-- hub -->
+            <div class="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-[#0d0d0d]">
+              <template v-if="spinning">
+                <span class="text-[10px] font-bold text-amber-400 animate-pulse">...</span>
+              </template>
               <template v-else-if="result">
-                <svg v-if="result.success" class="h-5 w-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                  <path d="M20 6 9 17l-5-5"/>
-                </svg>
-                <svg v-else class="h-5 w-5 text-rose-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                  <path d="M18 6 6 18M6 6l12 12"/>
-                </svg>
+                <svg v-if="result.success" class="h-6 w-6 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
+                <svg v-else class="h-6 w-6 text-rose-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </template>
+              <template v-else>
+                <span class="text-[10px] text-zinc-700 text-center leading-tight">{{ inputItem && targetSkin ? 'GO' : 'PICK' }}</span>
               </template>
             </div>
 
-            <!-- Win/loss label around dial -->
+            <!-- result badge -->
             <div
               v-if="result"
-              class="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full px-3 py-0.5 text-xs font-bold uppercase tracking-widest"
+              class="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border px-3 py-0.5 text-[11px] font-bold uppercase tracking-widest"
               :class="result.success
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'"
-            >
-              {{ result.success ? 'Success!' : 'Failed' }}
-            </div>
+                ? 'border-emerald-500/40 bg-emerald-950/60 text-emerald-400'
+                : 'border-rose-500/40 bg-rose-950/60 text-rose-400'"
+            >{{ result.success ? 'Success!' : 'Failed' }}</div>
           </div>
 
           <!-- Result banner -->
@@ -259,259 +168,417 @@
               v-if="result"
               class="w-full rounded-xl border px-4 py-3 text-sm"
               :class="result.success
-                ? 'border-emerald-500/30 bg-emerald-950/30 text-emerald-400'
-                : 'border-rose-500/30 bg-rose-950/30 text-rose-400'"
+                ? 'border-emerald-500/25 bg-emerald-950/30 text-emerald-400'
+                : 'border-rose-500/25 bg-rose-950/30 text-rose-400'"
             >
-              <template v-if="result.success">
-                <p class="font-bold">Upgrade successful!</p>
-                <p class="mt-0.5 text-xs opacity-80">
-                  Rolled {{ result.roll.toFixed(1) }} — needed below {{ result.winChance.toFixed(1) }}.
-                  You received <span class="font-semibold text-white">{{ result.reward.name }}</span>.
-                </p>
-              </template>
-              <template v-else>
-                <p class="font-bold">Upgrade failed.</p>
-                <p class="mt-0.5 text-xs opacity-80">
-                  Rolled {{ result.roll.toFixed(1) }} — needed below {{ result.winChance.toFixed(1) }}.
-                  Better luck next time.
-                </p>
-              </template>
+              <p class="font-bold">{{ result.success ? 'Upgrade successful!' : 'Upgrade failed.' }}</p>
+              <p class="mt-0.5 text-xs opacity-75">
+                Rolled {{ result.roll.toFixed(1) }} — needed below {{ result.winChance.toFixed(1) }}.
+                <template v-if="result.success">
+                  You received <span class="font-semibold text-white">{{ result.reward.name }}</span> (${{ fmtVal(result.reward.value) }}).
+                </template>
+                <template v-else>Your skin was consumed. Better luck next time.</template>
+              </p>
             </div>
           </Transition>
 
-          <!-- Error -->
           <p v-if="state.error" class="w-full text-xs text-rose-400">{{ state.error }}</p>
 
           <!-- Upgrade button -->
           <button
             class="w-full rounded-xl py-3 text-sm font-bold uppercase tracking-widest transition-all disabled:cursor-not-allowed disabled:opacity-40"
-            :class="selectedItem && !spinning
-              ? 'bg-amber-400 text-black shadow-lg shadow-amber-500/20 hover:bg-amber-300'
-              : 'bg-white/5 text-zinc-600'"
-            :disabled="!selectedItem || spinning || !state.user"
+            :class="canUpgrade ? 'bg-amber-400 text-black shadow-lg shadow-amber-500/20 hover:bg-amber-300' : 'bg-white/5 text-zinc-600'"
+            :disabled="!canUpgrade || spinning"
             @click="doUpgrade"
           >
             <span v-if="spinning" class="flex items-center justify-center gap-2">
-              <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-              </svg>
+              <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
               Upgrading...
             </span>
             <span v-else-if="!state.user">Sign in to upgrade</span>
-            <span v-else-if="!selectedItem">Select a skin first</span>
-            <span v-else>Upgrade to {{ targetRarity }}</span>
+            <span v-else-if="!inputItem">Select a skin to sacrifice</span>
+            <span v-else-if="!targetSkin">Select a target skin</span>
+            <span v-else>Upgrade — {{ winChance.toFixed(1) }}% chance</span>
           </button>
         </div>
 
-        <!-- Info card -->
-        <div class="rounded-2xl border border-white/8 bg-[#0d0d0d] p-4">
-          <p class="text-[11px] font-semibold uppercase tracking-widest text-zinc-600 mb-2">How it works</p>
-          <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <div
-              v-for="tier in upgradeTiers"
-              :key="tier.from"
-              class="rounded-lg border border-white/6 bg-white/3 p-2.5 text-center"
-            >
-              <p class="text-[10px]" :class="tier.fromColor">{{ tier.from }}</p>
-              <p class="my-0.5 text-xs text-zinc-600">→</p>
-              <p class="text-[10px]" :class="tier.toColor">{{ tier.to }}</p>
+        <!-- How it works -->
+        <div class="rounded-2xl border border-white/8 bg-[#0d0d0d] px-4 py-3">
+          <p class="text-[10px] font-semibold uppercase tracking-widest text-zinc-600 mb-2">How it works</p>
+          <div class="grid grid-cols-4 gap-1.5">
+            <div v-for="t in tierGuide" :key="t.label" class="rounded-lg border border-white/6 bg-white/3 p-2 text-center">
+              <p class="text-[9px] font-bold uppercase tracking-wide" :class="t.color">{{ t.label }}</p>
+              <p class="text-[9px] text-zinc-600 mt-0.5">{{ t.penalty }}</p>
             </div>
           </div>
-          <p class="mt-3 text-[11px] text-zinc-700 leading-relaxed">
-            Win chance = your skin's value ÷ target tier's base value × 100%, clamped between 5% and 90%.
-            On failure the skin is consumed with no reward.
+          <p class="mt-2 text-[10px] text-zinc-700 leading-relaxed">
+            Chance = (your skin value ÷ target value) × 100%, adjusted by tier-skip penalty, clamped 3–90%.
+            On failure your skin is consumed. On success it's replaced with the target.
           </p>
         </div>
       </div>
-    </div>
 
+      <!-- ══ RIGHT: TARGET (catalog browser) ═══════════════════ -->
+      <div class="lg:col-span-3 flex flex-col gap-3">
+        <div class="rounded-2xl border border-white/8 bg-[#0d0d0d] p-4 flex flex-col gap-3" style="min-height:520px;">
+
+          <p class="shrink-0 text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Target Skin</p>
+
+          <!-- selected preview -->
+          <div
+            class="shrink-0 rounded-xl border p-3 flex items-center gap-3 min-h-[72px] transition-all"
+            :class="targetSkin ? [rarityBorder(targetSkin.rarity), rarityBg(targetSkin.rarity)] : 'border-white/6 bg-white/3'"
+          >
+            <template v-if="targetSkin">
+              <img :src="targetSkin.icon" :alt="targetSkin.name" class="h-10 w-12 shrink-0 object-contain" @error="onImgErr" />
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-[11px] font-semibold text-white leading-tight">{{ targetSkin.name }}</p>
+                <p class="text-[10px]" :class="rarityLabel(targetSkin.rarity)">{{ targetSkin.rarity }}</p>
+                <p class="text-[10px] text-zinc-500">{{ targetSkin.wear }}</p>
+              </div>
+              <div class="shrink-0 text-right">
+                <p class="text-xs font-bold text-white">${{ fmtVal(targetSkin.value) }}</p>
+                <button class="mt-1 text-[10px] text-zinc-600 hover:text-rose-400 transition-colors" @click="targetSkin = null; result = null">✕</button>
+              </div>
+            </template>
+            <template v-else>
+              <div class="flex h-10 w-12 shrink-0 items-center justify-center rounded-lg border border-dashed border-white/10">
+                <svg class="h-5 w-5 text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+              </div>
+              <p class="text-xs text-zinc-600">{{ inputItem ? 'Choose a target' : 'Pick a sacrifice first' }}</p>
+            </template>
+          </div>
+
+          <!-- rarity filter -->
+          <div v-if="catalogTargets.length" class="shrink-0 flex flex-wrap gap-1">
+            <button
+              class="rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-all"
+              :class="rarityFilter === null ? 'border-white/20 bg-white/10 text-white' : 'border-white/8 text-zinc-500 hover:text-zinc-300'"
+              @click="rarityFilter = null"
+            >All</button>
+            <button
+              v-for="r in availableRarities" :key="r"
+              class="rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-all"
+              :class="rarityFilter === r
+                ? [rarityBorder(r), rarityBg(r), rarityLabel(r)]
+                : 'border-white/8 text-zinc-500 hover:text-zinc-300'"
+              @click="rarityFilter = rarityFilter === r ? null : r"
+            >{{ r }}</button>
+          </div>
+
+          <!-- search -->
+          <div v-if="catalogTargets.length" class="shrink-0 relative">
+            <svg class="pointer-events-none absolute inset-y-0 left-2.5 flex items-center h-full w-3.5 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search skins…"
+              class="w-full rounded-lg border border-white/8 bg-black/30 py-1.5 pl-8 pr-3 text-[11px] text-zinc-200 placeholder-zinc-600 outline-none focus:border-amber-400/40"
+            />
+          </div>
+
+          <!-- loading -->
+          <div v-if="catalogLoading" class="flex flex-1 items-center justify-center">
+            <svg class="h-5 w-5 animate-spin text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          </div>
+
+          <!-- no input selected -->
+          <div v-else-if="!inputItem" class="flex flex-1 flex-col items-center justify-center gap-1 text-center">
+            <p class="text-sm text-zinc-600">Select a sacrifice first</p>
+          </div>
+
+          <!-- no catalog targets -->
+          <div v-else-if="!catalogTargets.length" class="flex flex-1 flex-col items-center justify-center gap-1 text-center">
+            <p class="text-sm text-zinc-600">No catalog skins available</p>
+          </div>
+
+          <!-- no filtered results -->
+          <div v-else-if="!filteredTargets.length" class="flex flex-1 flex-col items-center justify-center gap-1 text-center">
+            <p class="text-sm text-zinc-600">No matches</p>
+          </div>
+
+          <!-- target list -->
+          <ul v-else class="flex-1 overflow-y-auto space-y-1 pr-0.5" style="max-height:340px;">
+            <li
+              v-for="skin in filteredTargets" :key="skin.name + skin.wear"
+              class="flex cursor-pointer items-center gap-2.5 rounded-xl border px-2.5 py-2 transition-all"
+              :class="targetSkin?.name === skin.name && targetSkin?.wear === skin.wear
+                ? [rarityBorder(skin.rarity), rarityBg(skin.rarity)]
+                : 'border-white/6 bg-white/3 hover:border-white/10 hover:bg-white/6'"
+              @click="selectTarget(skin)"
+            >
+              <img :src="skin.icon" :alt="skin.name" class="h-8 w-10 shrink-0 object-contain" @error="onImgErr" />
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-[10px] font-semibold text-zinc-100 leading-tight">{{ skin.name }}</p>
+                <p class="text-[9px]" :class="rarityLabel(skin.rarity)">{{ skin.rarity }}</p>
+              </div>
+              <div class="shrink-0 text-right">
+                <p class="text-[10px] font-bold text-white">${{ fmtVal(skin.value) }}</p>
+                <p class="text-[9px] mt-0.5" :class="chanceColorFor(skin)">{{ chanceFor(skin).toFixed(1) }}%</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { RARITY_STYLES } from "../data/skins";
+import { apiFetch } from "../lib/api";
 import { useUserState } from "../lib/userState";
 
 const { state, upgradeItem } = useUserState();
 
-// ── Constants (must mirror worker) ───────────────────────────
-const UPGRADE_LADDER = {
-  "Mil-Spec":  "Restricted",
-  Restricted:  "Classified",
-  Classified:  "Covert",
-  Covert:      "Rare Special",
+// ── Rarity order (mirrors worker) ────────────────────────────
+const RARITY_TIER = {
+  "Mil-Spec":     0,
+  Restricted:     1,
+  Classified:     2,
+  Covert:         3,
+  "Rare Special": 4,
 };
-
-const RARITY_BASE_VALUE = {
-  "Mil-Spec":    2.5,
-  Restricted:    7.0,
-  Classified:    15.0,
-  Covert:        40.0,
-  "Rare Special": 500.0,
-};
+const TIER_PENALTY = 1.8; // per extra tier beyond 1
 
 // ── State ────────────────────────────────────────────────────
-const selectedItem = ref(null);
-const spinning     = ref(false);
-const result       = ref(null);
-const needleEl     = ref(null);
+const inputItem     = ref(null);   // inventory item being sacrificed
+const targetSkin    = ref(null);   // catalog skin to win
+const spinning      = ref(false);
+const result        = ref(null);
+const needleEl      = ref(null);
+const catalogSkins  = ref([]);     // full catalog from /api/catalog
+const catalogLoading = ref(false);
+const rarityFilter  = ref(null);
+const searchQuery   = ref("");
 
-// ── Derived ──────────────────────────────────────────────────
+// ── Inventory ────────────────────────────────────────────────
 const inventory = computed(() => [...(state.profile?.inventory ?? [])].reverse());
 
-// Only items that have an upgrade tier
-const upgradableInventory = computed(() =>
-  inventory.value.filter((i) => Boolean(UPGRADE_LADDER[i.rarity]))
+// Any inventory item can be sacrificed (we allow same or lower rarity — worker enforces higher)
+const sacrificeable = computed(() =>
+  inventory.value.filter((i) => RARITY_TIER[i.rarity] !== undefined && RARITY_TIER[i.rarity] < 4)
 );
 
-const targetRarity = computed(() =>
-  selectedItem.value ? UPGRADE_LADDER[selectedItem.value.rarity] ?? null : null
-);
-
-const winChance = computed(() => {
-  if (!selectedItem.value || !targetRarity.value) return 0;
-  const raw = (Number(selectedItem.value.value) / RARITY_BASE_VALUE[targetRarity.value]) * 100;
-  return Math.min(90, Math.max(5, raw));
+// ── Catalog targets ──────────────────────────────────────────
+// From catalog: strictly higher rarity than input, de-duped by name+wear, sorted by value asc
+const catalogTargets = computed(() => {
+  if (!inputItem.value || !catalogSkins.value.length) return [];
+  const inputTier = RARITY_TIER[inputItem.value.rarity] ?? -1;
+  const seen = new Set();
+  const out = [];
+  for (const s of catalogSkins.value) {
+    const tier = RARITY_TIER[s.rarity];
+    if (tier === undefined || tier <= inputTier) continue;
+    const key = `${s.name}||${s.wear}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+  }
+  // sort by value ascending so cheap upgrades are at top
+  out.sort((a, b) => Number(a.value) - Number(b.value));
+  return out;
 });
 
-const chanceColor = computed(() => {
-  const c = winChance.value;
+const availableRarities = computed(() => {
+  const seen = new Set();
+  const out = [];
+  for (const s of catalogTargets.value) {
+    if (!seen.has(s.rarity)) { seen.add(s.rarity); out.push(s.rarity); }
+  }
+  return out.sort((a, b) => RARITY_TIER[a] - RARITY_TIER[b]);
+});
+
+const filteredTargets = computed(() => {
+  let list = catalogTargets.value;
+  if (rarityFilter.value) list = list.filter((s) => s.rarity === rarityFilter.value);
+  if (searchQuery.value.trim()) {
+    const q = searchQuery.value.trim().toLowerCase();
+    list = list.filter((s) => s.name.toLowerCase().includes(q));
+  }
+  return list;
+});
+
+// ── Chance math (mirrors worker) ─────────────────────────────
+const tierSkip = computed(() => {
+  if (!inputItem.value || !targetSkin.value) return 0;
+  return (RARITY_TIER[targetSkin.value.rarity] ?? 0) - (RARITY_TIER[inputItem.value.rarity] ?? 0);
+});
+
+const penaltyMult = computed(() => Math.pow(TIER_PENALTY, Math.max(0, tierSkip.value - 1)));
+
+const winChance = computed(() => calcChance(inputItem.value, targetSkin.value));
+
+function calcChance(input, target) {
+  if (!input || !target) return 0;
+  const inputVal  = Number(input.value);
+  const targetVal = Number(target.value);
+  if (targetVal <= 0) return 90;
+  const skip = (RARITY_TIER[target.rarity] ?? 0) - (RARITY_TIER[input.rarity] ?? 0);
+  const penalty = Math.pow(TIER_PENALTY, Math.max(0, skip - 1));
+  return Math.min(90, Math.max(3, (inputVal / (targetVal * penalty)) * 100));
+}
+
+function chanceFor(skin) { return calcChance(inputItem.value, skin); }
+
+const canUpgrade = computed(() => !!(state.user && inputItem.value && targetSkin.value && !spinning.value));
+
+// ── Colors ────────────────────────────────────────────────────
+const chanceColor = computed(() => colorForChance(winChance.value));
+function colorForChance(c) {
   if (c >= 60) return "text-emerald-400";
-  if (c >= 35) return "text-amber-400";
+  if (c >= 30) return "text-amber-400";
+  return "text-rose-400";
+}
+function chanceColorFor(skin) { return colorForChance(chanceFor(skin)); }
+
+const tierSkipDotColor = computed(() => {
+  const s = tierSkip.value;
+  if (s === 1) return "text-emerald-400";
+  if (s === 2) return "text-amber-400";
+  if (s === 3) return "text-orange-400";
   return "text-rose-400";
 });
 
-// Dial geometry — SVG arc constants
-const R = 88;
-const totalArcLength = computed(() => 2 * Math.PI * R);
-const winArcLength   = computed(() => (winChance.value / 100) * totalArcLength.value);
+const tierSkipLabel = computed(() => {
+  const s = tierSkip.value;
+  if (s === 1) return "+1 tier — normal";
+  if (s === 2) return "+2 tiers — risky";
+  if (s === 3) return "+3 tiers — very risky";
+  if (s >= 4)  return "+4 tiers — extreme";
+  return "";
+});
 
-// Static needle coords (just a tick at top — the animation is handled via CSS)
-const needleX = 100;
-const needleY = 12;
+// ── Dial geometry ─────────────────────────────────────────────
+const R = 84;
+const totalArc = computed(() => 2 * Math.PI * R);
+const winArc   = computed(() => (winChance.value / 100) * totalArc.value);
 
-// ── Methods ──────────────────────────────────────────────────
-function selectItem(item) {
+// ── Watchers ──────────────────────────────────────────────────
+// Reset target filter when input changes
+watch(inputItem, () => {
+  rarityFilter.value = null;
+  searchQuery.value  = "";
+  result.value       = null;
+  // keep targetSkin if it's still a valid catalog target for the new input
+  if (targetSkin.value && inputItem.value) {
+    const newInputTier = RARITY_TIER[inputItem.value.rarity] ?? -1;
+    const targetTier   = RARITY_TIER[targetSkin.value.rarity] ?? -1;
+    if (targetTier <= newInputTier) targetSkin.value = null;
+  } else if (!inputItem.value) {
+    targetSkin.value = null;
+  }
+});
+
+// ── Actions ───────────────────────────────────────────────────
+function selectInput(item) {
   if (spinning.value) return;
-  selectedItem.value = item;
-  result.value = null;
-  state.error = "";
+  inputItem.value = item;
+  result.value    = null;
+  state.error     = "";
 }
 
-function upgradeChanceFor(item) {
-  const target = UPGRADE_LADDER[item.rarity];
-  if (!target) return 0;
-  const raw = (Number(item.value) / RARITY_BASE_VALUE[target]) * 100;
-  return Math.min(90, Math.max(5, raw));
+function clearInput() {
+  inputItem.value  = null;
+  targetSkin.value = null;
+  result.value     = null;
 }
 
+function selectTarget(skin) {
+  if (spinning.value) return;
+  targetSkin.value = skin;
+  result.value     = null;
+  state.error      = "";
+}
+
+// ── Needle animation ──────────────────────────────────────────
 function spinNeedle(finalAngleDeg, duration, onDone) {
   const el = needleEl.value;
   if (!el) { onDone(); return; }
-
-  const startTime = performance.now();
-  const startAngle = 0;
-  // Spin ~4 full revolutions then land on the final angle
-  const totalTravel = 4 * 360 + finalAngleDeg;
-
-  function easeOut(t) {
-    return 1 - Math.pow(1 - t, 4);
-  }
-
+  const totalTravel = 5 * 360 + finalAngleDeg;
+  function easeOut(t) { return 1 - Math.pow(1 - t, 4); }
+  const t0 = performance.now();
   function frame(now) {
-    const elapsed = now - startTime;
-    const t = Math.min(elapsed / duration, 1);
-    const angle = startAngle + totalTravel * easeOut(t);
-    el.style.transform = `rotate(${angle}deg)`;
-    if (t < 1) {
-      requestAnimationFrame(frame);
-    } else {
-      el.style.transform = `rotate(${finalAngleDeg}deg)`;
-      onDone();
-    }
+    const t = Math.min((now - t0) / duration, 1);
+    el.style.transform = `rotate(${totalTravel * easeOut(t)}deg)`;
+    if (t < 1) requestAnimationFrame(frame);
+    else { el.style.transform = `rotate(${finalAngleDeg}deg)`; onDone(); }
   }
+  el.style.transform = "rotate(0deg)";
   requestAnimationFrame(frame);
 }
 
+// ── Upgrade ───────────────────────────────────────────────────
 async function doUpgrade() {
-  if (!selectedItem.value || spinning.value || !state.user) return;
+  if (!canUpgrade.value) return;
   spinning.value = true;
-  result.value = null;
-  state.error = "";
+  result.value   = null;
+  state.error    = "";
 
-  const itemToUpgrade = selectedItem.value;
+  const snapInput  = inputItem.value;
+  const snapTarget = targetSkin.value;
 
   try {
-    const res = await upgradeItem(itemToUpgrade.id);
+    const res = await upgradeItem(snapInput.id, snapTarget.name);
 
-    // The roll is 0–100; map it to a dial angle (0° = top, 360° = full circle).
-    // Win zone is the first winChance degrees from 0.
-    // We want the needle to land inside the win zone on success, outside on fail.
-    const winZoneEnd = (res.winChance / 100) * 360;
-    let finalAngle;
-    if (res.success) {
-      // Land somewhere inside the green arc
-      finalAngle = Math.random() * winZoneEnd * 0.9 + winZoneEnd * 0.05;
-    } else {
-      // Land somewhere in the red zone
-      finalAngle = winZoneEnd + Math.random() * (360 - winZoneEnd) * 0.9 + (360 - winZoneEnd) * 0.05;
-    }
+    const winZoneDeg = (res.winChance / 100) * 360;
+    const finalAngle = res.success
+      ? winZoneDeg * 0.05 + Math.random() * winZoneDeg * 0.90
+      : winZoneDeg + (360 - winZoneDeg) * 0.05 + Math.random() * (360 - winZoneDeg) * 0.90;
 
-    spinNeedle(finalAngle, 3200, () => {
-      result.value = res;
+    spinNeedle(finalAngle, 3400, () => {
+      result.value   = res;
       spinning.value = false;
-
-      // If selected item was consumed, deselect
-      const stillInInventory = inventory.value.find((i) => i.id === itemToUpgrade.id);
-      if (!stillInInventory) selectedItem.value = null;
+      // clear the consumed input from selection
+      const stillHas = inventory.value.find((i) => i.id === snapInput.id);
+      if (!stillHas) inputItem.value = null;
+      // keep targetSkin visible so user sees what they were going for
     });
   } catch (err) {
-    state.error = err.message;
+    state.error    = err.message;
     spinning.value = false;
   }
 }
 
-// ── Rarity helpers ───────────────────────────────────────────
+// ── Catalog load ──────────────────────────────────────────────
+onMounted(async () => {
+  catalogLoading.value = true;
+  try {
+    const data = await apiFetch("/api/catalog", { method: "GET" });
+    if (Array.isArray(data.skins)) catalogSkins.value = data.skins;
+  } catch (_) {
+    // silently fall back to empty — UI shows "no catalog skins available"
+  } finally {
+    catalogLoading.value = false;
+  }
+});
+
+// ── Helpers ───────────────────────────────────────────────────
 const FALLBACK_ICON =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 80'%3E%3Crect width='320' height='80' fill='%230d0d0d'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='%2352525b' font-family='Arial' font-size='14'%3ENo image%3C/text%3E%3C/svg%3E";
 
-function renderIcon(iconUrl) {
-  if (!iconUrl) return FALLBACK_ICON;
-  if (String(iconUrl).startsWith("/api/image")) return iconUrl;
-  if (String(iconUrl).startsWith("http")) return `/api/image?url=${encodeURIComponent(iconUrl)}`;
-  return iconUrl;
-}
 function onImgErr(e) { e.target.src = FALLBACK_ICON; }
+function fmtVal(v) { return Number(v).toFixed(2); }
 
-function rarityBorder(r)    { return RARITY_STYLES[r]?.border   ?? "border-white/8"; }
-function rarityLabel(r)     { return RARITY_STYLES[r]?.label    ?? "text-zinc-500"; }
-function rarityActiveBg(r) {
+function rarityBorder(r) { return RARITY_STYLES[r]?.border ?? "border-white/8"; }
+function rarityLabel(r)  { return RARITY_STYLES[r]?.label  ?? "text-zinc-500"; }
+function rarityBg(r) {
   const map = {
-    "Mil-Spec":    "bg-sky-950/40",
-    Restricted:    "bg-violet-950/40",
-    Classified:    "bg-pink-950/40",
-    Covert:        "bg-red-950/40",
-    "Rare Special":"bg-amber-950/40",
+    "Mil-Spec":     "bg-sky-950/40",
+    Restricted:     "bg-violet-950/40",
+    Classified:     "bg-pink-950/40",
+    Covert:         "bg-red-950/40",
+    "Rare Special": "bg-amber-950/40",
   };
   return map[r] ?? "bg-white/5";
 }
-function rarityBarBg(r) {
-  const map = {
-    "Mil-Spec":    "bg-sky-500",
-    Restricted:    "bg-violet-500",
-    Classified:    "bg-pink-500",
-    Covert:        "bg-red-500",
-    "Rare Special":"bg-amber-400",
-  };
-  return map[r] ?? "bg-zinc-700";
-}
 
-// Info grid
-const upgradeTiers = [
-  { from: "Mil-Spec",   fromColor: "text-sky-400",    to: "Restricted",   toColor: "text-violet-400" },
-  { from: "Restricted", fromColor: "text-violet-400", to: "Classified",   toColor: "text-pink-400"   },
-  { from: "Classified", fromColor: "text-pink-400",   to: "Covert",       toColor: "text-red-400"    },
-  { from: "Covert",     fromColor: "text-red-400",    to: "Rare Special", toColor: "text-amber-300"  },
+const tierGuide = [
+  { label: "+1 tier",  penalty: "No penalty",   color: "text-emerald-400" },
+  { label: "+2 tiers", penalty: "×1.8 harder",  color: "text-amber-400"   },
+  { label: "+3 tiers", penalty: "×3.2 harder",  color: "text-orange-400"  },
+  { label: "+4 tiers", penalty: "×5.8 harder",  color: "text-rose-400"    },
 ];
 </script>

@@ -106,19 +106,20 @@ async function signOutUser() {
   state.stipendMessage = "";
 }
 
-async function upgradeItem(inventoryId) {
+async function upgradeItem(inputId, targetName) {
   if (!state.user || !state.profile) {
     throw new Error("Sign in to upgrade items.");
   }
   const data = await apiFetch("/api/upgrade", {
     method: "POST",
-    body: JSON.stringify({ inventoryId }),
+    body: JSON.stringify({ inputId, targetName }),
   });
   state.profile = data.profile;
   return {
     success: data.success,
     winChance: data.winChance,
     roll: data.roll,
+    tierSkip: data.tierSkip,
     reward: data.reward,
   };
 }

@@ -282,8 +282,7 @@ const FALLBACK_ICON =
 
 function renderIcon(iconUrl) {
   if (!iconUrl) return FALLBACK_ICON;
-  if (String(iconUrl).startsWith("/api/image")) return iconUrl;
-  if (String(iconUrl).startsWith("http")) return `/api/image?url=${encodeURIComponent(iconUrl)}`;
+  if (String(iconUrl).startsWith("http")) return iconUrl;
   return iconUrl;
 }
 function onImgErr(e) { e.target.src = FALLBACK_ICON; }
