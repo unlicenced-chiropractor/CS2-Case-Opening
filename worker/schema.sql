@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS inventory (
   item_icon TEXT NOT NULL,
   item_value REAL NOT NULL,
   dropped_at INTEGER NOT NULL,
+  sold_at INTEGER DEFAULT NULL,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 

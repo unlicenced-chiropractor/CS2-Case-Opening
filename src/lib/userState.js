@@ -94,6 +94,18 @@ async function signOutUser() {
   state.stipendMessage = "";
 }
 
+async function sellItem(inventoryId) {
+  if (!state.user || !state.profile) {
+    throw new Error("Sign in to sell items.");
+  }
+  const data = await apiFetch("/api/sell-item", {
+    method: "POST",
+    body: JSON.stringify({ inventoryId }),
+  });
+  state.profile = data.profile;
+  return { soldValue: data.soldValue };
+}
+
 async function openCaseRoll(cost) {
   if (!state.user || !state.profile) {
     throw new Error("Sign in to open cases.");
@@ -104,8 +116,10 @@ async function openCaseRoll(cost) {
       cost,
     }),
   });
-  state.profile = data.profile;
-  return data.drop;
+  // Do NOT apply data.profile here — callers (HomeView) are responsible for
+  // applying it at the right moment so the inventory/balance don't spoil
+  // the spinner result before the animation finishes.
+  return { drop: data.drop, profile: data.profile };
 }
 
 async function initAuth() {
@@ -137,6 +151,7 @@ export function useUserState() {
     signOutUser,
     initAuth,
     openCaseRoll,
+    sellItem,
     refreshProfile,
     applyStipendIfEligible,
   };

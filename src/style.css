@@ -1,7 +1,72 @@
 @import "tailwindcss";
 
-body {
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  background: radial-gradient(circle at top, #111827, #020617 60%);
-  color: #e5e7eb;
+@layer base {
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+    }
+
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        font-family:
+            "Inter",
+            system-ui,
+            -apple-system,
+            "Segoe UI",
+            Roboto,
+            sans-serif;
+        background-color: #080808;
+        background-image:
+            radial-gradient(
+                ellipse 80% 50% at 50% -10%,
+                rgba(245, 158, 11, 0.08) 0%,
+                transparent 70%
+            ),
+            url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+        color: #e5e7eb;
+        min-height: 100dvh;
+        -webkit-font-smoothing: antialiased;
+    }
+}
+
+/* Rarity glow utilities */
+.glow-milspec {
+    box-shadow: 0 0 12px 1px rgba(99, 179, 237, 0.25);
+}
+.glow-restricted {
+    box-shadow: 0 0 12px 1px rgba(167, 139, 250, 0.3);
+}
+.glow-classified {
+    box-shadow: 0 0 12px 1px rgba(244, 114, 182, 0.3);
+}
+.glow-covert {
+    box-shadow: 0 0 14px 2px rgba(248, 113, 113, 0.35);
+}
+.glow-rare {
+    box-shadow: 0 0 18px 3px rgba(251, 191, 36, 0.45);
+}
+
+/* Spinner animation override — smoother cubic bezier */
+.spin-ease {
+    transition-timing-function: cubic-bezier(0.05, 0.85, 0.3, 1);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #2a2a2a;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #3a3a3a;
 }

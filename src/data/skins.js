@@ -16,13 +16,44 @@ export const RARITY_WEIGHTS = [
   { rarity: "Rare Special", weight: 0.5 },
 ];
 
-export const RARITY_COLORS = {
-  "Mil-Spec": "border-sky-500",
-  Restricted: "border-purple-500",
-  Classified: "border-pink-500",
-  Covert: "border-red-500",
-  "Rare Special": "border-amber-400",
+// border color + glow class pairs used by CaseSpinner and inventory cards
+export const RARITY_STYLES = {
+  "Mil-Spec": {
+    border: "border-sky-500/60",
+    glow: "glow-milspec",
+    label: "text-sky-400",
+    bg: "from-sky-950/40",
+  },
+  Restricted: {
+    border: "border-violet-500/60",
+    glow: "glow-restricted",
+    label: "text-violet-400",
+    bg: "from-violet-950/40",
+  },
+  Classified: {
+    border: "border-pink-500/60",
+    glow: "glow-classified",
+    label: "text-pink-400",
+    bg: "from-pink-950/40",
+  },
+  Covert: {
+    border: "border-red-500/60",
+    glow: "glow-covert",
+    label: "text-red-400",
+    bg: "from-red-950/40",
+  },
+  "Rare Special": {
+    border: "border-amber-400/70",
+    glow: "glow-rare",
+    label: "text-amber-300",
+    bg: "from-amber-950/40",
+  },
 };
+
+// Legacy alias kept so nothing else breaks
+export const RARITY_COLORS = Object.fromEntries(
+  Object.entries(RARITY_STYLES).map(([k, v]) => [k, v.border]),
+);
 
 export const SKINS = [
   {

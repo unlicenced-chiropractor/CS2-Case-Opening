@@ -26,6 +26,7 @@ CS2-inspired case opening demo built with Vue + Vite + Tailwind + Vue Router + C
    - `npx wrangler d1 execute DB --local --file=./worker/schema.sql`
 4. Run Worker API:
    - `npx wrangler dev`
+
 5. Copy `.env.example` to `.env` if needed and set:
    - `VITE_API_BASE_URL` (default is `http://127.0.0.1:8787`)
 6. Run frontend:
@@ -38,4 +39,5 @@ CS2-inspired case opening demo built with Vue + Vite + Tailwind + Vue Router + C
 - Stipend rule:
   - If balance is below `$5`, user gets `+$100` virtual credits every 15 minutes.
 - Weighted rarity and wear tables.
+- Catalog sourced from the open-source [ByMykel CSGO-API](https://github.com/ByMykel/CSGO-API) with a local fallback.
 - CS2-style rolling strip animation that lands on the selected result.

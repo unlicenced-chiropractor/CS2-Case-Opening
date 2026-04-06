@@ -7,6 +7,8 @@ var STIPEND_AMOUNT = 100;
 var STIPEND_THRESHOLD = 5;
 var SESSION_TTL_MS = 1e3 * 60 * 60 * 24 * 7;
 var CASE_COST = 10;
+var BYMYKEL_SKINS_URL = "https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins_not_grouped.json";
+var CATALOG_CACHE_TTL_MS = 60 * 60 * 1e3;
 var WEAR_TABLE = [
   { name: "Factory New", short: "FN", weight: 15 },
   { name: "Minimal Wear", short: "MW", weight: 24 },
@@ -22,22 +24,101 @@ var RARITY_WEIGHTS = [
   { rarity: "Rare Special", weight: 0.5 }
 ];
 var SKINS = [
-  { name: "AK-47 | Redline", rarity: "Classified", value: 14.8, icon: "https://cdn.csgoskins.gg/public/images/skins/ak-47-redline.png" },
-  { name: "M4A1-S | Decimator", rarity: "Classified", value: 18.7, icon: "https://cdn.csgoskins.gg/public/images/skins/m4a1-s-decimator.png" },
-  { name: "AWP | Neo-Noir", rarity: "Covert", value: 39.25, icon: "https://cdn.csgoskins.gg/public/images/skins/awp-neo-noir.png" },
-  { name: "Desert Eagle | Mecha Industries", rarity: "Restricted", value: 7.15, icon: "https://cdn.csgoskins.gg/public/images/skins/desert-eagle-mecha-industries.png" },
-  { name: "USP-S | Cortex", rarity: "Restricted", value: 5.62, icon: "https://cdn.csgoskins.gg/public/images/skins/usp-s-cortex.png" },
-  { name: "Glock-18 | Vogue", rarity: "Restricted", value: 5.2, icon: "https://cdn.csgoskins.gg/public/images/skins/glock-18-vogue.png" },
-  { name: "P250 | See Ya Later", rarity: "Classified", value: 11.3, icon: "https://cdn.csgoskins.gg/public/images/skins/p250-see-ya-later.png" },
-  { name: "MP9 | Starlight Protector", rarity: "Covert", value: 31.9, icon: "https://cdn.csgoskins.gg/public/images/skins/mp9-starlight-protector.png" },
-  { name: "MAC-10 | Neon Rider", rarity: "Restricted", value: 6.6, icon: "https://cdn.csgoskins.gg/public/images/skins/mac-10-neon-rider.png" },
-  { name: "FAMAS | Mecha Industries", rarity: "Mil-Spec", value: 2.4, icon: "https://cdn.csgoskins.gg/public/images/skins/famas-mecha-industries.png" },
-  { name: "SG 553 | Pulse", rarity: "Mil-Spec", value: 1.9, icon: "https://cdn.csgoskins.gg/public/images/skins/sg-553-pulse.png" },
-  { name: "P90 | Elite Build", rarity: "Mil-Spec", value: 1.65, icon: "https://cdn.csgoskins.gg/public/images/skins/p90-elite-build.png" },
-  { name: "Galil AR | Signal", rarity: "Mil-Spec", value: 1.25, icon: "https://cdn.csgoskins.gg/public/images/skins/galil-ar-signal.png" },
-  { name: "XM1014 | Entombed", rarity: "Mil-Spec", value: 1.75, icon: "https://cdn.csgoskins.gg/public/images/skins/xm1014-entombed.png" },
-  { name: "\u2605 Karambit | Doppler", rarity: "Rare Special", value: 980, icon: "https://cdn.csgoskins.gg/public/images/skins/karambit-doppler-factory-new.png" }
+  {
+    name: "AK-47 | Redline",
+    rarity: "Classified",
+    value: 14.8,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/ak-47-redline.png"
+  },
+  {
+    name: "M4A1-S | Decimator",
+    rarity: "Classified",
+    value: 18.7,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/m4a1-s-decimator.png"
+  },
+  {
+    name: "AWP | Neo-Noir",
+    rarity: "Covert",
+    value: 39.25,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/awp-neo-noir.png"
+  },
+  {
+    name: "Desert Eagle | Mecha Industries",
+    rarity: "Restricted",
+    value: 7.15,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/desert-eagle-mecha-industries.png"
+  },
+  {
+    name: "USP-S | Cortex",
+    rarity: "Restricted",
+    value: 5.62,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/usp-s-cortex.png"
+  },
+  {
+    name: "Glock-18 | Vogue",
+    rarity: "Restricted",
+    value: 5.2,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/glock-18-vogue.png"
+  },
+  {
+    name: "P250 | See Ya Later",
+    rarity: "Classified",
+    value: 11.3,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/p250-see-ya-later.png"
+  },
+  {
+    name: "MP9 | Starlight Protector",
+    rarity: "Covert",
+    value: 31.9,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/mp9-starlight-protector.png"
+  },
+  {
+    name: "MAC-10 | Neon Rider",
+    rarity: "Restricted",
+    value: 6.6,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/mac-10-neon-rider.png"
+  },
+  {
+    name: "FAMAS | Mecha Industries",
+    rarity: "Mil-Spec",
+    value: 2.4,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/famas-mecha-industries.png"
+  },
+  {
+    name: "SG 553 | Pulse",
+    rarity: "Mil-Spec",
+    value: 1.9,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/sg-553-pulse.png"
+  },
+  {
+    name: "P90 | Elite Build",
+    rarity: "Mil-Spec",
+    value: 1.65,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/p90-elite-build.png"
+  },
+  {
+    name: "Galil AR | Signal",
+    rarity: "Mil-Spec",
+    value: 1.25,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/galil-ar-signal.png"
+  },
+  {
+    name: "XM1014 | Entombed",
+    rarity: "Mil-Spec",
+    value: 1.75,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/xm1014-entombed.png"
+  },
+  {
+    name: "\u2605 Karambit | Doppler",
+    rarity: "Rare Special",
+    value: 980,
+    icon: "https://cdn.csgoskins.gg/public/images/skins/karambit-doppler-factory-new.png"
+  }
 ];
+var catalogCache = {
+  loadedAt: 0,
+  skins: []
+};
 var worker_default = {
   async fetch(request, env) {
     if (request.method === "OPTIONS" && new URL(request.url).pathname.startsWith("/api/")) {
@@ -48,14 +129,31 @@ var worker_default = {
       if (env.ASSETS) {
         return env.ASSETS.fetch(request);
       }
-      return json({ error: "Assets binding missing. Build app and set [assets] in wrangler.toml." }, 500);
+      return json(
+        {
+          error: "Assets binding missing. Build app and set [assets] in wrangler.toml."
+        },
+        500
+      );
     }
     try {
       if (url.pathname === "/api/health" && request.method === "GET") {
         return json({ ok: true }, 200);
       }
+      if (url.pathname === "/api/image" && request.method === "GET") {
+        return await proxyImage(url);
+      }
       if (url.pathname === "/api/catalog" && request.method === "GET") {
-        return json({ caseCost: CASE_COST, skins: SKINS, rarityWeights: RARITY_WEIGHTS }, 200);
+        const catalog = await getCatalog(env);
+        return json(
+          {
+            caseCost: CASE_COST,
+            skins: catalog.skins,
+            rarityWeights: RARITY_WEIGHTS,
+            source: catalog.source
+          },
+          200
+        );
       }
       if (url.pathname === "/api/register" && request.method === "POST") {
         return await register(request, env);
@@ -98,17 +196,61 @@ async function register(request, env) {
     "INSERT INTO users (id, email, password_hash, salt, balance, last_stipend_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
   ).bind(userId, email, passwordHash, salt, 25, now, now).run();
   const session = await createSession(env, userId);
-  return json({ token: session.token, user: { id: userId, email }, profile: await getProfile(env, userId) });
+  return json({
+    token: session.token,
+    user: { id: userId, email },
+    profile: await getProfile(env, userId)
+  });
 }
 __name(register, "register");
+async function proxyImage(url) {
+  const sourceUrl = url.searchParams.get("url");
+  if (!sourceUrl) return imageFallback("Missing image url");
+  let parsed;
+  try {
+    parsed = new URL(sourceUrl);
+  } catch (_err) {
+    return imageFallback("Invalid image url");
+  }
+  if (!isAllowedImageHost(parsed.hostname)) {
+    return imageFallback("Image host blocked");
+  }
+  try {
+    const upstream = await fetch(parsed.toString(), {
+      headers: {
+        "User-Agent": "CaseStrike/1.0",
+        Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8"
+      }
+    });
+    if (!upstream.ok) return imageFallback(`Upstream ${upstream.status}`);
+    const contentType = upstream.headers.get("content-type") || "image/png";
+    if (!contentType.startsWith("image/")) {
+      return imageFallback("Invalid content type");
+    }
+    return new Response(await upstream.arrayBuffer(), {
+      status: 200,
+      headers: {
+        "content-type": contentType,
+        "cache-control": "public, max-age=86400",
+        ...corsHeaders()
+      }
+    });
+  } catch (_err) {
+    return imageFallback("Proxy fetch failed");
+  }
+}
+__name(proxyImage, "proxyImage");
 async function login(request, env) {
   const body = await request.json();
   const email = normalizeEmail(body.email);
   const password = String(body.password || "");
-  const user = await env.DB.prepare("SELECT id, email, password_hash, salt FROM users WHERE email = ?").bind(email).first();
+  const user = await env.DB.prepare(
+    "SELECT id, email, password_hash, salt FROM users WHERE email = ?"
+  ).bind(email).first();
   if (!user) return json({ error: "Invalid credentials." }, 401);
   const check = await sha256Hex(`${password}:${user.salt}`);
-  if (check !== user.password_hash) return json({ error: "Invalid credentials." }, 401);
+  if (check !== user.password_hash)
+    return json({ error: "Invalid credentials." }, 401);
   const session = await createSession(env, user.id);
   return json({
     token: session.token,
@@ -140,14 +282,21 @@ async function openCase(request, env) {
   if (!Number.isFinite(cost) || cost <= 0) {
     return json({ error: "Invalid case payload." }, 400);
   }
-  const balanceRow = await env.DB.prepare("SELECT balance FROM users WHERE id = ?").bind(session.user.id).first();
+  const balanceRow = await env.DB.prepare(
+    "SELECT balance FROM users WHERE id = ?"
+  ).bind(session.user.id).first();
   const currentBalance = Number(balanceRow?.balance ?? 0);
-  if (currentBalance < cost) return json({ error: "Not enough credits for this case." }, 400);
-  const selectedSkin = rollSkin();
+  if (currentBalance < cost)
+    return json({ error: "Not enough credits for this case." }, 400);
+  const catalog = await getCatalog(env);
+  const selectedSkin = rollSkin(catalog.skins);
   const now = Date.now();
   const nextBalance = currentBalance - cost + Number(selectedSkin.value ?? 0);
   await env.DB.batch([
-    env.DB.prepare("UPDATE users SET balance = ? WHERE id = ?").bind(nextBalance, session.user.id),
+    env.DB.prepare("UPDATE users SET balance = ? WHERE id = ?").bind(
+      nextBalance,
+      session.user.id
+    ),
     env.DB.prepare(
       "INSERT INTO inventory (user_id, item_name, item_rarity, item_wear, item_icon, item_value, dropped_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
     ).bind(
@@ -160,20 +309,31 @@ async function openCase(request, env) {
       now
     )
   ]);
-  return json({ ok: true, drop: { ...selectedSkin, droppedAt: now }, profile: await getProfile(env, session.user.id) });
+  return json({
+    ok: true,
+    drop: { ...selectedSkin, droppedAt: now },
+    profile: await getProfile(env, session.user.id)
+  });
 }
 __name(openCase, "openCase");
 async function claimStipend(request, env) {
   const session = await requireSession(request, env);
-  const row = await env.DB.prepare("SELECT balance, last_stipend_at FROM users WHERE id = ?").bind(session.user.id).first();
+  const row = await env.DB.prepare(
+    "SELECT balance, last_stipend_at FROM users WHERE id = ?"
+  ).bind(session.user.id).first();
   const now = Date.now();
   const balance = Number(row?.balance ?? 0);
   const last = Number(row?.last_stipend_at ?? 0);
   const eligible = balance < STIPEND_THRESHOLD && now - last >= STIPEND_INTERVAL_MS;
   if (eligible) {
-    await env.DB.prepare("UPDATE users SET balance = ?, last_stipend_at = ? WHERE id = ?").bind(balance + STIPEND_AMOUNT, now, session.user.id).run();
+    await env.DB.prepare(
+      "UPDATE users SET balance = ?, last_stipend_at = ? WHERE id = ?"
+    ).bind(balance + STIPEND_AMOUNT, now, session.user.id).run();
   }
-  return json({ paid: eligible, profile: await getProfile(env, session.user.id) });
+  return json({
+    paid: eligible,
+    profile: await getProfile(env, session.user.id)
+  });
 }
 __name(claimStipend, "claimStipend");
 async function requireSession(request, env) {
@@ -187,19 +347,26 @@ async function requireSession(request, env) {
     await env.DB.prepare("DELETE FROM sessions WHERE token = ?").bind(token).run();
     throw new Error("Session expired.");
   }
-  return { user: { id: session.user_id, email: session.email }, token: session.token };
+  return {
+    user: { id: session.user_id, email: session.email },
+    token: session.token
+  };
 }
 __name(requireSession, "requireSession");
 async function createSession(env, userId) {
   const token = randomToken(48);
   const now = Date.now();
   const expiresAt = now + SESSION_TTL_MS;
-  await env.DB.prepare("INSERT INTO sessions (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)").bind(token, userId, expiresAt, now).run();
+  await env.DB.prepare(
+    "INSERT INTO sessions (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)"
+  ).bind(token, userId, expiresAt, now).run();
   return { token, expiresAt };
 }
 __name(createSession, "createSession");
 async function getProfile(env, userId) {
-  const user = await env.DB.prepare("SELECT balance, last_stipend_at FROM users WHERE id = ?").bind(userId).first();
+  const user = await env.DB.prepare(
+    "SELECT balance, last_stipend_at FROM users WHERE id = ?"
+  ).bind(userId).first();
   const inventoryRows = await env.DB.prepare(
     "SELECT item_name, item_rarity, item_wear, item_icon, item_value, dropped_at FROM inventory WHERE user_id = ? ORDER BY dropped_at DESC"
   ).bind(userId).all();
@@ -250,9 +417,10 @@ function weightedPick(items) {
   return items[items.length - 1];
 }
 __name(weightedPick, "weightedPick");
-function rollSkin() {
+function rollSkin(sourceSkins) {
+  const skins = Array.isArray(sourceSkins) && sourceSkins.length ? sourceSkins : SKINS;
   const rarity = weightedPick(RARITY_WEIGHTS).rarity;
-  const pool = SKINS.filter((skin) => skin.rarity === rarity);
+  const pool = skins.filter((skin) => skin.rarity === rarity);
   const selected = pool[Math.floor(Math.random() * pool.length)];
   const wear = weightedPick(WEAR_TABLE);
   const wearMultiplier = {
@@ -270,6 +438,93 @@ function rollSkin() {
   };
 }
 __name(rollSkin, "rollSkin");
+async function getCatalog(_env) {
+  const now = Date.now();
+  if (catalogCache.skins.length && now - catalogCache.loadedAt < CATALOG_CACHE_TTL_MS) {
+    return { skins: catalogCache.skins, source: "bymykel-cache" };
+  }
+  try {
+    const response = await fetch(BYMYKEL_SKINS_URL, {
+      headers: { "User-Agent": "CaseStrike/1.0" }
+    });
+    if (!response.ok) throw new Error(`ByMykel API error ${response.status}`);
+    const items = await response.json();
+    const mapped = mapBymykelSkinsToSkins(Array.isArray(items) ? items : []);
+    if (!mapped.length) throw new Error("No usable skins from ByMykel API.");
+    catalogCache = { loadedAt: now, skins: mapped };
+    return { skins: mapped, source: "bymykel" };
+  } catch (_err) {
+    return { skins: SKINS, source: "local-fallback" };
+  }
+}
+__name(getCatalog, "getCatalog");
+function rarityFromBymykel(rarityId) {
+  const map = {
+    rarity_common_weapon: "Mil-Spec",
+    // Consumer Grade  → treat as Mil-Spec pool
+    rarity_uncommon_weapon: "Mil-Spec",
+    // Industrial Grade → treat as Mil-Spec pool
+    rarity_rare_weapon: "Mil-Spec",
+    rarity_mythical_weapon: "Restricted",
+    rarity_legendary_weapon: "Classified",
+    rarity_ancient_weapon: "Covert",
+    rarity_ancient: "Covert",
+    rarity_contraband: "Rare Special"
+  };
+  return map[String(rarityId)] || "Mil-Spec";
+}
+__name(rarityFromBymykel, "rarityFromBymykel");
+function mapBymykelSkinsToSkins(items) {
+  const out = [];
+  for (const item of items) {
+    if (!item?.name || !item?.image) continue;
+    if (item.souvenir || item.stattrak) continue;
+    const rarityId = item?.rarity?.id ?? "";
+    const rarity = rarityFromBymykel(rarityId);
+    const wear = item?.wear?.name || "Field-Tested";
+    const defaultValues = {
+      "Mil-Spec": 2.5,
+      Restricted: 7,
+      Classified: 15,
+      Covert: 40,
+      "Rare Special": 500
+    };
+    const value = defaultValues[rarity] ?? 2.5;
+    out.push({
+      name: String(item.name).trim(),
+      rarity,
+      wear,
+      value,
+      icon: String(item.image)
+    });
+  }
+  return out;
+}
+__name(mapBymykelSkinsToSkins, "mapBymykelSkinsToSkins");
+function isAllowedImageHost(hostname) {
+  const allowed = [
+    "community.cloudflare.steamstatic.com",
+    "steamcdn-a.akamaihd.net",
+    "raw.githubusercontent.com",
+    "cdn.steamstatic.com",
+    "community.akamai.steamstatic.com"
+  ];
+  return allowed.includes(hostname);
+}
+__name(isAllowedImageHost, "isAllowedImageHost");
+function imageFallback(reason = "Image unavailable") {
+  const safeReason = String(reason).replace(/[<>&"']/g, "");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80"><rect width="320" height="80" fill="#111827"/><text x="50%" y="44%" dominant-baseline="middle" text-anchor="middle" fill="#e5e7eb" font-family="Arial" font-size="14">Skin image unavailable</text><text x="50%" y="64%" dominant-baseline="middle" text-anchor="middle" fill="#94a3b8" font-family="Arial" font-size="11">${safeReason}</text></svg>`;
+  return new Response(svg, {
+    status: 200,
+    headers: {
+      "content-type": "image/svg+xml; charset=utf-8",
+      "cache-control": "public, max-age=300",
+      ...corsHeaders()
+    }
+  });
+}
+__name(imageFallback, "imageFallback");
 function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": "*",
