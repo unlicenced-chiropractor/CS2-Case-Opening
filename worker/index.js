@@ -76,6 +76,9 @@ export default {
       if (url.pathname === "/api/admin/update-balance" && request.method === "POST") {
         return await updateBalance(request, env);
       }
+      if (url.pathname === "/api/upgrade" && request.method === "POST") {
+        return await upgradeItem(request, env);
+      }
       return json({ error: "Not found" }, 404);
     } catch (err) {
       const status = Number.isInteger(err?.status) ? err.status : 500;
@@ -250,6 +253,187 @@ async function sellItem(request, env) {
   });
 }
 
+// Rarity upgrade ladder — maps each tier to the next one up
+const UPGRADE_LADDER = {
+  "Mil-Spec": "Restricted",
+  Restricted: "Classified",
+  Classified: "Covert",
+  Covert: "Rare Special",
+};
+
+// Default value per rarity tier used to compute win chance when
+// the input item has an unusually low or high value.
+const RARITY_BASE_VALUE = {
+  "Mil-Spec": 2.5,
+  Restricted: 7.0,
+  Classified: 15.0,
+  Covert: 40.0,
+  "Rare Special": 500.0,
+};
+
+async function upgradeItem(request, env) {
+  const session = await requireSession(request, env);
+  const body = await request.json();
+  const inventoryId = Number(body.inventoryId);
+
+  if (!Number.isInteger(inventoryId) || inventoryId <= 0) {
+    return json({ error: "Invalid inventory item." }, 400);
+  }
+
+  // Load the item and verify ownership + unsold
+  const item = await env.DB.prepare(
+    "SELECT id, item_rarity, item_value, sold_at FROM inventory WHERE id = ? AND user_id = ?",
+  )
+    .bind(inventoryId, session.user.id)
+    .first();
+
+  if (!item) return json({ error: "Item not found." }, 404);
+  if (item.sold_at !== null) return json({ error: "Item already sold." }, 409);
+
+  const inputRarity = String(item.item_rarity);
+  const targetRarity = UPGRADE_LADDER[inputRarity];
+  if (!targetRarity) {
+    return json(
+      { error: "Rare Special items cannot be upgraded further." },
+      400,
+    );
+  }
+
+  // Win chance = clamp(inputValue / targetBaseValue * 100, 5, 90)
+  const inputValue = Number(item.item_value);
+  const targetBase = RARITY_BASE_VALUE[targetRarity];
+  const rawChance = (inputValue / targetBase) * 100;
+  const winChance = Math.min(90, Math.max(5, rawChance));
+
+  const roll = Math.random() * 100;
+  const success = roll < winChance;
+  const now = Date.now();
+
+  if (success) {
+    // Roll a new skin of the target rarity from the catalog
+    const catalog = await getCatalog(env);
+    const pool = catalog.skins.filter((s) => s.rarity === targetRarity);
+    const skinPool = pool.length ? pool : catalog.skins;
+    const newSkin = skinPool[Math.floor(Math.random() * skinPool.length)];
+    const wear = weightedPick(WEAR_TABLE);
+    const wearMultiplier =
+      {
+        "Factory New": 1.2,
+        "Minimal Wear": 1.1,
+        "Field-Tested": 1,
+        "Well-Worn": 0.85,
+        "Battle-Scarred": 0.72,
+      }[wear.name] ?? 1;
+    const newValue = Number(
+      (RARITY_BASE_VALUE[targetRarity] * wearMultiplier).toFixed(2),
+    );
+
+    await env.DB.batch([
+      // Mark input item sold (consumed)
+      env.DB.prepare("UPDATE inventory SET sold_at = ? WHERE id = ?").bind(
+        now,
+        inventoryId,
+      ),
+      // Insert the new upgraded item
+      env.DB.prepare(
+        "INSERT INTO inventory (user_id, item_name, item_rarity, item_wear, item_icon, item_value, dropped_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      ).bind(
+        session.user.id,
+        String(newSkin.name),
+        targetRarity,
+        wear.name,
+        String(newSkin.icon || ""),
+        newValue,
+        now,
+      ),
+    ]);
+
+    return json({
+      ok: true,
+      success: true,
+      winChance: Number(winChance.toFixed(1)),
+      roll: Number(roll.toFixed(1)),
+      reward: {
+        name: newSkin.name,
+        rarity: targetRarity,
+        wear: wear.name,
+        icon: newSkin.icon,
+        value: newValue,
+      },
+      profile: await getProfile(env, session.user.id),
+    });
+  } else {
+    // Failed — consume the item, no reward
+    await env.DB.prepare("UPDATE inventory SET sold_at = ? WHERE id = ?")
+      .bind(now, inventoryId)
+      .run();
+
+    return json({
+      ok: true,
+      success: false,
+      winChance: Number(winChance.toFixed(1)),
+      roll: Number(roll.toFixed(1)),
+      reward: null,
+      profile: await getProfile(env, session.user.id),
+    });
+  }
+}
+
+async function sellBulk(request, env) {
+  const session = await requireSession(request, env);
+  const body = await request.json();
+
+  // rarities is an array of rarity label strings e.g. ["Mil-Spec","Restricted"]
+  const rarities = Array.isArray(body.rarities) ? body.rarities : [];
+  if (!rarities.length) {
+    return json({ error: "No rarities specified." }, 400);
+  }
+
+  // Fetch all unsold items for this user matching those rarities.
+  // D1 doesn't support array bindings, so we build the placeholders manually.
+  const placeholders = rarities.map(() => "?").join(", ");
+  const items = await env.DB.prepare(
+    `SELECT id, item_value FROM inventory WHERE user_id = ? AND sold_at IS NULL AND item_rarity IN (${placeholders})`,
+  )
+    .bind(session.user.id, ...rarities)
+    .all();
+
+  const rows = items.results || [];
+  if (!rows.length) {
+    return json({
+      ok: true,
+      soldCount: 0,
+      soldValue: 0,
+      profile: await getProfile(env, session.user.id),
+    });
+  }
+
+  const now = Date.now();
+  const totalValue = rows.reduce((sum, r) => sum + Number(r.item_value), 0);
+
+  // Mark every matched item as sold in one batch, then credit the balance.
+  const statements = rows.map((r) =>
+    env.DB.prepare("UPDATE inventory SET sold_at = ? WHERE id = ?").bind(
+      now,
+      r.id,
+    ),
+  );
+  statements.push(
+    env.DB.prepare("UPDATE users SET balance = balance + ? WHERE id = ?").bind(
+      totalValue,
+      session.user.id,
+    ),
+  );
+  await env.DB.batch(statements);
+
+  return json({
+    ok: true,
+    soldCount: rows.length,
+    soldValue: Number(totalValue.toFixed(2)),
+    profile: await getProfile(env, session.user.id),
+  });
+}
+
 async function claimStipend(request, env) {
   const session = await requireSession(request, env);
   const row = await env.DB.prepare("SELECT balance, last_stipend_at FROM users WHERE id = ?")
@@ -409,8 +593,8 @@ async function updateBalance(request, env) {
   });
 }
 
-function adminMe(request, env) {
-  const session = requireSession(request, env);
+async function adminMe(request, env) {
+  const session = await requireSession(request, env);
 
   return json({
     userId: session.user.id,
@@ -681,13 +865,4 @@ async function createSession(env, userId) {
     .bind(token, userId, expiresAt, now)
     .run();
   return { token, expiresAt };
-}
-
-async function adminMe(request, env) {
-  const session = await requireSession(request, env);
-
-  return json({
-    userId: session.user.id,
-    isAdmin: asBoolean(session.user.isAdmin),
-  });
 }

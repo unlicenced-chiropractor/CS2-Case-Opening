@@ -106,6 +106,23 @@ async function signOutUser() {
   state.stipendMessage = "";
 }
 
+async function upgradeItem(inventoryId) {
+  if (!state.user || !state.profile) {
+    throw new Error("Sign in to upgrade items.");
+  }
+  const data = await apiFetch("/api/upgrade", {
+    method: "POST",
+    body: JSON.stringify({ inventoryId }),
+  });
+  state.profile = data.profile;
+  return {
+    success: data.success,
+    winChance: data.winChance,
+    roll: data.roll,
+    reward: data.reward,
+  };
+}
+
 async function sellBulk(rarities) {
   if (!state.user || !state.profile) {
     throw new Error("Sign in to sell items.");
@@ -181,6 +198,7 @@ export function useUserState() {
     openCaseRoll,
     sellItem,
     sellBulk,
+    upgradeItem,
     refreshProfile,
     applyStipendIfEligible,
   };
