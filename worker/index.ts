@@ -18,7 +18,7 @@ export default {
     env: Env,
     ctx: ExecutionContext,
   ): Promise<Response> {
-    ctx.waitUntil(warmPriceCache());
+    ctx.waitUntil(warmPriceCache().then(() => {}));
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {

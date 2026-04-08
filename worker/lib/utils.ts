@@ -180,8 +180,8 @@ export async function rollSkin(
  * Warm the price cache in the background. Call this at startup so the first
  * roll already has live prices available.
  */
-export async function warmPriceCache(): Promise<void> {
-  await getPrices();
+export async function warmPriceCache(): Promise<Record<string, number>> {
+  return getPrices();
 }
 
 function rarityFromBymykel(rarityId: string): string {
