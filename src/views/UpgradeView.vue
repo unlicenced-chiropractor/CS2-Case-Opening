@@ -521,7 +521,18 @@ async function doUpgrade() {
   const snapTarget = targetSkin.value;
 
   try {
+    // Snapshot the profile before the API call so we can restore it
+    // during the animation and only reveal the result once it finishes.
+    const profileBeforeUpgrade = state.profile
+      ? { ...state.profile, inventory: [...(state.profile.inventory ?? [])] }
+      : null;
+
     const res = await upgradeItem(snapInput.id, snapTarget.name);
+
+    // upgradeItem already wrote the new profile into state.profile —
+    // capture it, then put the old one back while the needle spins.
+    const updatedProfile = state.profile;
+    state.profile = profileBeforeUpgrade;
 
     const winZoneDeg = (res.winChance / 100) * 360;
     const finalAngle = res.success
@@ -529,6 +540,8 @@ async function doUpgrade() {
       : winZoneDeg + (360 - winZoneDeg) * 0.05 + Math.random() * (360 - winZoneDeg) * 0.90;
 
     spinNeedle(finalAngle, 3400, () => {
+      // Animation done — now reveal the real inventory + result
+      state.profile  = updatedProfile;
       result.value   = res;
       spinning.value = false;
       // clear the consumed input from selection

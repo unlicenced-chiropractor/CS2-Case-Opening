@@ -1,10 +1,20 @@
-import { RARITY_TIER } from "../../lib/constants";
-import { getCatalog, getProfile, json, requireSession } from "../../lib/utils";
+import { CASE_SKINS, RARITY_TIER } from "../../lib/constants";
+import { getProfile, json, requireSession } from "../../lib/utils";
 import type { RouteContext } from "../../lib/types";
+
+// Flat deduplicated list of all curated skins across all cases
+const ALL_CURATED_SKINS = Object.values(CASE_SKINS)
+  .flat()
+  .filter(
+    (skin, idx, arr) => arr.findIndex((s) => s.name === skin.name) === idx,
+  );
 
 export async function post({ request, env }: RouteContext): Promise<Response> {
   const session = await requireSession(request, env);
-  const body = (await request.json()) as { inputId?: unknown; targetName?: unknown };
+  const body = (await request.json()) as {
+    inputId?: unknown;
+    targetName?: unknown;
+  };
 
   const inputId = Number(body.inputId);
   const targetName = String(body.targetName ?? "").trim();
@@ -23,10 +33,10 @@ export async function post({ request, env }: RouteContext): Promise<Response> {
     .first();
 
   if (!inputRow) return json({ error: "Input item not found." }, 404);
-  if (inputRow.sold_at !== null) return json({ error: "Input item already sold." }, 409);
+  if (inputRow.sold_at !== null)
+    return json({ error: "Input item already sold." }, 409);
 
-  const catalog = await getCatalog(env);
-  const targetSkin = catalog.skins.find(
+  const targetSkin = ALL_CURATED_SKINS.find(
     (s) => String(s.name).trim().toLowerCase() === targetName.toLowerCase(),
   );
 
@@ -37,10 +47,15 @@ export async function post({ request, env }: RouteContext): Promise<Response> {
   const inputTier = RARITY_TIER[String(inputRow.item_rarity)];
   const targetTier = RARITY_TIER[String(targetSkin.rarity)];
 
-  if (inputTier === undefined) return json({ error: "Unknown input rarity." }, 400);
-  if (targetTier === undefined) return json({ error: "Unknown target rarity." }, 400);
+  if (inputTier === undefined)
+    return json({ error: "Unknown input rarity." }, 400);
+  if (targetTier === undefined)
+    return json({ error: "Unknown target rarity." }, 400);
   if (targetTier <= inputTier) {
-    return json({ error: "Target must be a higher rarity than the input." }, 400);
+    return json(
+      { error: "Target must be a higher rarity than the input." },
+      400,
+    );
   }
 
   const inputValue = Number(inputRow.item_value);
@@ -56,7 +71,10 @@ export async function post({ request, env }: RouteContext): Promise<Response> {
   const now = Date.now();
 
   const statements = [
-    env.DB.prepare("UPDATE inventory SET sold_at = ? WHERE id = ?").bind(now, inputId),
+    env.DB.prepare("UPDATE inventory SET sold_at = ? WHERE id = ?").bind(
+      now,
+      inputId,
+    ),
   ];
 
   if (success) {
@@ -67,7 +85,7 @@ export async function post({ request, env }: RouteContext): Promise<Response> {
         session.user.id,
         String(targetSkin.name),
         String(targetSkin.rarity),
-        String(targetSkin.wear ?? "Field-Tested"),
+        "Field-Tested",
         String(targetSkin.icon ?? ""),
         Number(targetValue),
         now,
@@ -87,7 +105,7 @@ export async function post({ request, env }: RouteContext): Promise<Response> {
       ? {
           name: String(targetSkin.name),
           rarity: String(targetSkin.rarity),
-          wear: String(targetSkin.wear ?? "Field-Tested"),
+          wear: "Field-Tested",
           icon: String(targetSkin.icon ?? ""),
           value: Number(targetValue),
         }
