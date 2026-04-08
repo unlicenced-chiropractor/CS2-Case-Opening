@@ -5,16 +5,20 @@ import {
   routeNotFound,
   withErrorHandling,
 } from "./lib/route";
-import { json } from "./lib/utils";
+import { json, warmPriceCache } from "./lib/utils";
 import { routes } from "./routes";
 
 const ASSETS_MISSING = {
-  error:
-    "Assets binding missing. Build app and set [assets] in wrangler.toml.",
+  error: "Assets binding missing. Build app and set [assets] in wrangler.toml.",
 };
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(
+    request: Request,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<Response> {
+    ctx.waitUntil(warmPriceCache());
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {

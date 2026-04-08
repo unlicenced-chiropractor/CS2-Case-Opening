@@ -14,7 +14,8 @@ let loadPromise = null;
 export function weightsToLuckPool(weights) {
   const w = Array.isArray(weights) && weights.length ? weights : RARITY_WEIGHTS;
   const total = w.reduce((s, p) => s + Number(p.weight), 0);
-  if (total <= 0) return w.map((p) => ({ rarity: p.rarity, weight: p.weight, percent: 0 }));
+  if (total <= 0)
+    return w.map((p) => ({ rarity: p.rarity, weight: p.weight, percent: 0 }));
   return w.map((p) => ({
     rarity: p.rarity,
     weight: p.weight,
@@ -86,7 +87,9 @@ export function buildLocalPreview(skins, luckPool, caseId = "classic") {
 
 function applyCatalogFromResponse(catalog, skins) {
   const cost =
-    Number.isFinite(catalog.caseCost) && catalog.caseCost > 0 ? catalog.caseCost : FALLBACK_CASE_COST;
+    Number.isFinite(catalog.caseCost) && catalog.caseCost > 0
+      ? catalog.caseCost
+      : FALLBACK_CASE_COST;
   if (Array.isArray(catalog.cases) && catalog.cases.length) {
     casesList.value = catalog.cases;
     return;
@@ -126,6 +129,7 @@ export function ensureCaseCatalog() {
 
 export function caseCardAccentBorder(caseId) {
   const borders = {
+    free: "border-l-green-400/80",
     budget: "border-l-emerald-500/70",
     classic: "border-l-sky-500/70",
     premium: "border-l-violet-500/70",

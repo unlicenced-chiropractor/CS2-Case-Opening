@@ -71,7 +71,7 @@ const props = defineProps({
   variant: { type: String, default: "default" },
 });
 
-const SPIN_DURATION = 7800;
+const SPIN_DURATION = 3500;
 const TRACK_LEFT = 12;
 const GAP = 8;
 
@@ -117,7 +117,8 @@ watch(
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        const targetX = -(props.targetIndex * itemStride.value) + measuredCenter.value;
+        const randomOffset = (Math.random() - 0.5) * layout.value.cardW;
+        const targetX = -(props.targetIndex * itemStride.value) + measuredCenter.value - layout.value.cardW / 2 + randomOffset;
         applyTransform(targetX, true);
       });
     });

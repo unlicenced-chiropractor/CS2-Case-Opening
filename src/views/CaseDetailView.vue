@@ -45,7 +45,8 @@
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div class="min-w-0">
             <h1 class="text-xl font-bold tracking-tight text-white">{{ selectedCase.name }}</h1>
-            <p class="mt-1 text-sm text-zinc-500">${{ caseCost.toFixed(2) }} per open</p>
+            <p v-if="caseCost === 0" class="mt-1 text-sm font-semibold text-green-400">FREE</p>
+            <p v-else class="mt-1 text-sm text-zinc-500">${{ caseCost.toFixed(2) }} per open</p>
             <p class="mt-2 text-xs leading-relaxed text-zinc-500">{{ oddsLine }}</p>
           </div>
           <div class="flex flex-wrap justify-end gap-1.5">
@@ -73,7 +74,7 @@
             :disabled="!canOpen || spinning || spinPreparing"
             @click="openCase"
           >
-            <span v-if="!spinPreparing && !spinning">Open — ${{ caseCost.toFixed(2) }}</span>
+            <span v-if="!spinPreparing && !spinning">{{ caseCost === 0 ? 'Open — FREE' : `Open — $${caseCost.toFixed(2)}` }}</span>
             <span v-else class="flex items-center gap-2">
               <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path
@@ -90,7 +91,7 @@
             >Sign in</RouterLink>
             to open cases
           </p>
-          <p v-else-if="balance < caseCost" class="text-xs text-zinc-500">
+          <p v-else-if="caseCost > 0 && balance < caseCost" class="text-xs text-zinc-500">
             Not enough credits — stipend tops you up when balance is below $5
           </p>
         </div>
@@ -319,13 +320,21 @@ const selectedCase = computed(() => {
 
 const caseCost = computed(() => Number(selectedCase.value?.cost ?? FALLBACK_CASE_COST));
 
+function getCaseSkins() {
+  const c = selectedCase.value;
+  if (!c) return catalogSkins.value;
+  return (c.skins?.length ? c.skins : null) ?? catalogSkins.value;
+}
+
 function rebuildCaseSpinnerFeed() {
-  if (!catalogSkins.value.length || spinning.value || !selectedCase.value) return;
+  if (spinning.value || !selectedCase.value) return;
+  const skins = getCaseSkins();
+  if (!skins.length) return;
   const lp = selectedCase.value.luckPool;
   spinnerFeed.value =
-    lp?.length && casesList.value.length
-      ? makeCaseWeightedSpinnerFeed(catalogSkins.value, lp, 70)
-      : makeSpinnerFeed(catalogSkins.value, 70);
+    lp?.length
+      ? makeCaseWeightedSpinnerFeed(skins, lp, 70)
+      : makeSpinnerFeed(skins, 70);
 }
 
 watch(
@@ -351,11 +360,12 @@ const activePreview = computed(() => {
   const prev = c.preview;
   const cid = c.id ?? "classic";
   if (prev?.length) return prev;
-  return buildLocalPreview(catalogSkins.value, c.luckPool ?? [], cid);
+  const skins = (c.skins?.length ? c.skins : null) ?? catalogSkins.value;
+  return buildLocalPreview(skins, c.luckPool ?? [], cid);
 });
 
 const balance = computed(() => Number(state.profile?.balance ?? 0));
-const canOpen = computed(() => state.user && selectedCase.value && balance.value >= caseCost.value);
+const canOpen = computed(() => state.user && selectedCase.value && (caseCost.value === 0 || balance.value >= caseCost.value));
 
 const FALLBACK_ICON =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 80'%3E%3Crect width='320' height='80' fill='%230d0d0d'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='%2352525b' font-family='Arial' font-size='14'%3ENo image%3C/text%3E%3C/svg%3E";
@@ -412,10 +422,11 @@ async function openCase() {
     const { drop: rolled, profile: updatedProfile } = await openCaseRoll(id);
 
     const lp = selectedCase.value?.luckPool;
+    const spinSkins = getCaseSkins();
     const newFeed =
-      lp?.length && casesList.value.length
-        ? makeCaseWeightedSpinnerFeed(catalogSkins.value, lp, 70)
-        : makeSpinnerFeed(catalogSkins.value, 70);
+      lp?.length
+        ? makeCaseWeightedSpinnerFeed(spinSkins, lp, 70)
+        : makeSpinnerFeed(spinSkins, 70);
     const { copy, index } = putResultNearCenter(newFeed, rolled);
     spinnerFeed.value = copy;
     targetIndex.value = index;
@@ -430,7 +441,7 @@ async function openCase() {
       lastDrop.value = rolled;
       spinning.value = false;
       revealVisible.value = true;
-    }, 7900);
+    }, 3600);
   } catch (err) {
     state.error = err.message;
     spinPreparing.value = false;

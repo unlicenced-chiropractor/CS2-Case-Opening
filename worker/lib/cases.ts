@@ -1,4 +1,4 @@
-import { RARITY_WEIGHTS } from "./constants";
+import { CASE_SKINS, RARITY_WEIGHTS } from "./constants";
 import type { Env, Skin } from "./types";
 
 const RARITY_ORDER = RARITY_WEIGHTS.map((r) => r.rarity);
@@ -27,7 +27,12 @@ export interface CaseCatalogEntry {
     rarity: string;
     percent: number;
     count: number;
-    sample: Array<{ name: string; rarity: string; icon: string; value: number }>;
+    sample: Array<{
+      name: string;
+      rarity: string;
+      icon: string;
+      value: number;
+    }>;
   }>;
 }
 
@@ -56,7 +61,7 @@ const FALLBACK_CASES: CaseRow[] = [
     id: "premium",
     name: "Premium Case",
     description: "Shifted toward higher rarities.",
-    cost: 35,
+    cost: 15,
     pools: [
       { rarity: "Mil-Spec", weight: 40 },
       { rarity: "Restricted", weight: 32 },
@@ -69,13 +74,26 @@ const FALLBACK_CASES: CaseRow[] = [
     id: "elite",
     name: "Elite Case",
     description: "High stakes; much better Covert and Rare Special odds.",
-    cost: 85,
+    cost: 25,
     pools: [
       { rarity: "Mil-Spec", weight: 28 },
       { rarity: "Restricted", weight: 28 },
       { rarity: "Classified", weight: 22 },
       { rarity: "Covert", weight: 18 },
       { rarity: "Rare Special", weight: 4 },
+    ],
+  },
+  {
+    id: "free",
+    name: "Free Case",
+    description: "No credits needed — open once and see what you get!",
+    cost: 0,
+    pools: [
+      { rarity: "Mil-Spec", weight: 55 },
+      { rarity: "Restricted", weight: 28 },
+      { rarity: "Classified", weight: 12 },
+      { rarity: "Covert", weight: 4.5 },
+      { rarity: "Rare Special", weight: 0.5 },
     ],
   },
 ];
@@ -104,7 +122,12 @@ function hashString(s: string): number {
  * Each case should show a different slice of the catalog (not always the same first 10 per rarity).
  * Budget emphasizes cheap items; elite/premium emphasize top-end; classic uses a neutral name-ordered window.
  */
-export function previewSampleSkins(pool: Skin[], caseId: string, rarity: string, max: number): Skin[] {
+export function previewSampleSkins(
+  pool: Skin[],
+  caseId: string,
+  rarity: string,
+  max: number,
+): Skin[] {
   if (!pool.length) return [];
   const id = caseId || "classic";
   const highTier = rarity === "Covert" || rarity === "Rare Special";
@@ -132,7 +155,9 @@ export function previewSampleSkins(pool: Skin[], caseId: string, rarity: string,
   return sorted.slice(start, start + max);
 }
 
-function luckPoolWithPercents(pools: { rarity: string; weight: number }[]): LuckPoolEntry[] {
+function luckPoolWithPercents(
+  pools: { rarity: string; weight: number }[],
+): LuckPoolEntry[] {
   const total = pools.reduce((s, p) => s + p.weight, 0);
   if (total <= 0) {
     return pools.map((p) => ({ ...p, percent: 0 }));
@@ -144,7 +169,10 @@ function luckPoolWithPercents(pools: { rarity: string; weight: number }[]): Luck
   }));
 }
 
-export function buildCaseCatalogEntries(casesIn: CaseRow[], skins: Skin[]): CaseCatalogEntry[] {
+export function buildCaseCatalogEntries(
+  casesIn: CaseRow[],
+  skins: Skin[],
+): CaseCatalogEntry[] {
   const byRarity = groupSkinsByRarity(skins);
   return casesIn.map((c) => {
     const pools = c.pools.length ? c.pools : [...RARITY_WEIGHTS];
@@ -180,7 +208,13 @@ export async function loadCases(env: Env): Promise<CaseRow[]> {
   try {
     const rows = await env.DB.prepare(
       "SELECT id, name, description, cost, sort_order FROM cases WHERE active = 1 ORDER BY sort_order ASC, id ASC",
-    ).all<{ id: string; name: string; description: string | null; cost: number; sort_order: number }>();
+    ).all<{
+      id: string;
+      name: string;
+      description: string | null;
+      cost: number;
+      sort_order: number;
+    }>();
 
     const results = rows.results;
     if (!results?.length) {
@@ -232,7 +266,12 @@ export async function loadCases(env: Env): Promise<CaseRow[]> {
 export async function resolveCaseForOpen(
   env: Env,
   caseId: string | undefined | null,
-): Promise<{ id: string; cost: number; luckPool: { rarity: string; weight: number }[] } | null> {
+): Promise<{
+  id: string;
+  cost: number;
+  luckPool: { rarity: string; weight: number }[];
+  skins: { name: string; rarity: string; value: number; icon: string }[];
+} | null> {
   const cases = await loadCases(env);
   if (!cases.length) return null;
   const raw = String(caseId ?? "").trim();
@@ -240,5 +279,6 @@ export async function resolveCaseForOpen(
   let c = cases.find((x) => x.id === id);
   if (!c) c = cases.find((x) => x.id === "classic") ?? cases[0];
   const pools = c.pools.length ? c.pools : [...RARITY_WEIGHTS];
-  return { id: c.id, cost: c.cost, luckPool: pools };
+  const skins = CASE_SKINS[c.id] ?? CASE_SKINS["classic"] ?? [];
+  return { id: c.id, cost: c.cost, luckPool: pools, skins };
 }

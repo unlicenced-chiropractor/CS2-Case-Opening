@@ -66,12 +66,14 @@ CREATE TABLE IF NOT EXISTS case_luck_pools (
 CREATE INDEX IF NOT EXISTS idx_case_luck_pools_case_id ON case_luck_pools (case_id);
 
 INSERT OR IGNORE INTO cases (id, name, description, cost, sort_order, active) VALUES
+  ('free', 'Free Case', 'No credits needed — open once and see what you get!', 0, -1, 1),
   ('classic', 'Classic Case', 'Balanced odds — the original CaseStrike experience.', 10, 0, 1),
   ('budget', 'Budget Case', 'Cheap opens; mostly Mil-Spec with a small chase.', 3, 1, 1),
-  ('premium', 'Premium Case', 'Shifted toward higher rarities.', 35, 2, 1),
-  ('elite', 'Elite Case', 'High stakes; much better Covert and Rare Special odds.', 85, 3, 1);
+  ('premium', 'Premium Case', 'Shifted toward higher rarities.', 15, 2, 1),
+  ('elite', 'Elite Case', 'High stakes; much better Covert and Rare Special odds.', 25, 3, 1);
 
 INSERT OR IGNORE INTO case_luck_pools (case_id, rarity, weight) VALUES
+  ('free', 'Mil-Spec', 55), ('free', 'Restricted', 28), ('free', 'Classified', 12), ('free', 'Covert', 4.5), ('free', 'Rare Special', 0.5),
   ('classic', 'Mil-Spec', 55), ('classic', 'Restricted', 28), ('classic', 'Classified', 12), ('classic', 'Covert', 4.5), ('classic', 'Rare Special', 0.5),
   ('budget', 'Mil-Spec', 72), ('budget', 'Restricted', 22), ('budget', 'Classified', 5), ('budget', 'Covert', 0.9), ('budget', 'Rare Special', 0.1),
   ('premium', 'Mil-Spec', 40), ('premium', 'Restricted', 32), ('premium', 'Classified', 18), ('premium', 'Covert', 9), ('premium', 'Rare Special', 1),

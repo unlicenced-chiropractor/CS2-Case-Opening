@@ -29,7 +29,8 @@
           :style="{ '--stagger': index }"
         >
           <p class="text-base font-semibold text-white">{{ c.name }}</p>
-          <p class="mt-1 text-sm text-zinc-500">${{ Number(c.cost).toFixed(2) }}</p>
+          <p v-if="Number(c.cost) === 0" class="mt-1 text-sm font-semibold text-green-400">FREE</p>
+          <p v-else class="mt-1 text-sm text-zinc-500">${{ Number(c.cost).toFixed(2) }}</p>
           <p v-if="c.description" class="mt-2 line-clamp-3 text-xs leading-relaxed text-zinc-600">
             {{ c.description }}
           </p>

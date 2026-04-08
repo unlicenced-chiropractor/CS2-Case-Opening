@@ -6,8 +6,15 @@ import {
   SKINS,
   WEAR_MULTIPLIER,
   WEAR_TABLE,
+  YOUPIN_PRICES_URL,
 } from "./constants";
-import { type CatalogCache, type Env, type RollCatalogResult, type Skin, type Session } from "./types";
+import {
+  type CatalogCache,
+  type Env,
+  type RollCatalogResult,
+  type Skin,
+  type Session,
+} from "./types";
 
 const CATALOG_FALLBACK_SKINS = SKINS as unknown as Skin[];
 
@@ -15,6 +22,38 @@ let catalogCache: CatalogCache = {
   loadedAt: 0,
   skins: CATALOG_FALLBACK_SKINS,
 };
+
+interface PriceCache {
+  loadedAt: number;
+  prices: Record<string, number>;
+}
+
+let priceCache: PriceCache = {
+  loadedAt: 0,
+  prices: {},
+};
+
+async function getPrices(): Promise<Record<string, number>> {
+  const now = Date.now();
+  if (
+    Object.keys(priceCache.prices).length &&
+    now - priceCache.loadedAt < CATALOG_CACHE_TTL_MS
+  ) {
+    return priceCache.prices;
+  }
+  try {
+    const response = await fetch(YOUPIN_PRICES_URL, {
+      headers: { "Accept-Encoding": "gzip", "User-Agent": "CaseStrike/1.0" },
+    });
+    if (!response.ok)
+      throw new Error(`YouPin prices fetch failed: ${response.status}`);
+    const data = (await response.json()) as Record<string, number>;
+    priceCache = { loadedAt: now, prices: data };
+    return data;
+  } catch {
+    return priceCache.prices;
+  }
+}
 
 export function corsHeaders() {
   return {
@@ -65,14 +104,18 @@ export async function sha256Hex(input: string): Promise<string> {
 export function randomToken(bytes: number): string {
   const bytesArr = new Uint8Array(bytes);
   crypto.getRandomValues(bytesArr);
-  return [...bytesArr].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return [...bytesArr]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export interface WeightedItem {
   weight: number;
 }
 
-export function weightedPick<T extends WeightedItem>(items: ReadonlyArray<T>): T {
+export function weightedPick<T extends WeightedItem>(
+  items: ReadonlyArray<T>,
+): T {
   const total = items.reduce((sum, item) => sum + item.weight, 0);
   const threshold = Math.random() * total;
   let current = 0;
@@ -89,10 +132,10 @@ export interface WearEntry {
   weight: number;
 }
 
-export function rollSkin(
+export async function rollSkin(
   sourceSkins: Skin[],
   luckPool?: ReadonlyArray<{ rarity: string; weight: number }> | null,
-): Skin {
+): Promise<Skin> {
   const skins =
     Array.isArray(sourceSkins) && sourceSkins.length > 0
       ? sourceSkins
@@ -104,20 +147,41 @@ export function rollSkin(
       : (RARITY_WEIGHTS as ReadonlyArray<{ rarity: string; weight: number }>);
 
   const rarity = weightedPick(weights);
-  let pool = skins.filter((skin) => skin.rarity === (rarity as { rarity: string }).rarity);
+  let pool = skins.filter(
+    (skin) => skin.rarity === (rarity as { rarity: string }).rarity,
+  );
   if (!pool.length) {
     pool = skins;
   }
   const selected = pool[Math.floor(Math.random() * pool.length)] as Skin;
   const wear = weightedPick(WEAR_TABLE as readonly WearEntry[]);
-  const wearMultiplier = WEAR_MULTIPLIER[wear.name as keyof typeof WEAR_MULTIPLIER];
+  const wearMultiplier =
+    WEAR_MULTIPLIER[wear.name as keyof typeof WEAR_MULTIPLIER];
+  const fallbackValue = Number((selected.value * wearMultiplier).toFixed(2));
+
+  // Fetch live prices (uses cache if fresh, fetches if stale)
+  const prices = await getPrices();
+  const priceKey = `${selected.name} (${wear.name})`;
+  const livePrice = prices[priceKey];
+  const value =
+    livePrice != null && livePrice > 0
+      ? Number(livePrice.toFixed(2))
+      : fallbackValue;
 
   return {
     ...selected,
     wear: wear.name,
     shortWear: wear.short,
-    value: Number((selected.value * wearMultiplier).toFixed(2)),
+    value,
   };
+}
+
+/**
+ * Warm the price cache in the background. Call this at startup so the first
+ * roll already has live prices available.
+ */
+export async function warmPriceCache(): Promise<void> {
+  await getPrices();
 }
 
 function rarityFromBymykel(rarityId: string): string {
@@ -152,7 +216,9 @@ function mapBymykelSkinsToSkins(items: unknown[]): Skin[] {
 
     const rarityId = (value.rarity as { id?: string } | undefined)?.id ?? "";
     const rarity = rarityFromBymykel(rarityId);
-    const wear = String((value.wear as { name?: string } | undefined)?.name || "Field-Tested");
+    const wear = String(
+      (value.wear as { name?: string } | undefined)?.name || "Field-Tested",
+    );
     const fallbackValue = defaults[rarity] ?? 2.5;
 
     out.push({
@@ -170,7 +236,10 @@ function mapBymykelSkinsToSkins(items: unknown[]): Skin[] {
 export async function getCatalog(_env: Env): Promise<RollCatalogResult> {
   const now = Date.now();
 
-  if (catalogCache.skins.length && now - catalogCache.loadedAt < CATALOG_CACHE_TTL_MS) {
+  if (
+    catalogCache.skins.length &&
+    now - catalogCache.loadedAt < CATALOG_CACHE_TTL_MS
+  ) {
     return { skins: catalogCache.skins, source: "bymykel-cache" };
   }
 
@@ -183,7 +252,9 @@ export async function getCatalog(_env: Env): Promise<RollCatalogResult> {
     }
 
     const payload = await response.json();
-    const mapped = mapBymykelSkinsToSkins(Array.isArray(payload) ? payload : []);
+    const mapped = mapBymykelSkinsToSkins(
+      Array.isArray(payload) ? payload : [],
+    );
     if (!mapped.length) {
       throw new Error("No usable skins from ByMykel API.");
     }
@@ -244,7 +315,10 @@ export function throwObjectStatus(message: string, status: number): never {
   throw error;
 }
 
-export async function requireSession(request: Request, env: Env): Promise<Session> {
+export async function requireSession(
+  request: Request,
+  env: Env,
+): Promise<Session> {
   const token = getBearerToken(request);
   if (!token) throwObjectStatus("Missing auth token.", 401);
 
@@ -259,7 +333,9 @@ export async function requireSession(request: Request, env: Env): Promise<Sessio
   }
 
   if (Number(row.expires_at) < Date.now()) {
-    await env.DB.prepare("DELETE FROM sessions WHERE token = ?").bind(token).run();
+    await env.DB.prepare("DELETE FROM sessions WHERE token = ?")
+      .bind(token)
+      .run();
     throwObjectStatus("Session expired.", 401);
   }
 
@@ -273,7 +349,10 @@ export async function requireSession(request: Request, env: Env): Promise<Sessio
   };
 }
 
-export async function requireAdmin(request: Request, env: Env): Promise<Session> {
+export async function requireAdmin(
+  request: Request,
+  env: Env,
+): Promise<Session> {
   const session = await requireSession(request, env);
   if (!session.user.isAdmin) {
     throwObjectStatus("Admin access required.", 403);
@@ -282,7 +361,9 @@ export async function requireAdmin(request: Request, env: Env): Promise<Session>
 }
 
 export async function getProfile(env: Env, userId: string) {
-  const user = await env.DB.prepare("SELECT balance, last_stipend_at FROM users WHERE id = ?")
+  const user = await env.DB.prepare(
+    "SELECT balance, last_stipend_at FROM users WHERE id = ?",
+  )
     .bind(userId)
     .first();
 
@@ -307,7 +388,10 @@ export async function getProfile(env: Env, userId: string) {
   };
 }
 
-export async function createSession(env: Env, userId: string): Promise<{ token: string; expiresAt: number }> {
+export async function createSession(
+  env: Env,
+  userId: string,
+): Promise<{ token: string; expiresAt: number }> {
   const token = randomToken(48);
   const now = Date.now();
   const expiresAt = now + SESSION_TTL_MS;
