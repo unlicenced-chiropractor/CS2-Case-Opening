@@ -198,7 +198,7 @@
 
     <!-- FOOTER -->
     <footer class="border-t border-white/5 py-4 text-center text-xs text-zinc-600">
-      CaseStrike Demo — Virtual credits only. Not affiliated with Valve or CS2.
+      CaseStrike — Virtual credits only. Not affiliated with Valve or CS2.
       <span class="ml-2 opacity-50">v{{ appVersion }}</span>
     </footer>
   </div>
