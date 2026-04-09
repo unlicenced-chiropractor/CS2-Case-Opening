@@ -13,7 +13,6 @@ function getLivePrice(
   skinName: string,
   fallback: number,
 ): number {
-  // Preferred wear order: Field-Tested first, then others
   const wearOrder = [
     "Field-Tested",
     "Minimal Wear",
@@ -45,16 +44,27 @@ export async function get({ env }: RouteContext): Promise<Response> {
   // Fetch live prices (uses cache if fresh)
   const prices = await warmPriceCache();
 
-  const allCuratedSkins = Object.values(CASE_SKINS).flat();
-  const enrichedAllSkins = enrichSkinsWithLivePrices(allCuratedSkins, prices);
+  // Build a per-case enriched skin map so each case only shows its own skins.
+  // CASE_SKINS[id] is the authoritative list for that case; fall back to
+  // "classic" if a DB-configured case id has no curated skin list yet.
+  const skinsByCaseId: Record<
+    string,
+    { name: string; rarity: string; value: number; icon: string }[]
+  > = {};
 
-  const cases = buildCaseCatalogEntries(caseRows, enrichedAllSkins).map(
+  for (const row of caseRows) {
+    const raw = CASE_SKINS[row.id] ?? CASE_SKINS["classic"] ?? [];
+    skinsByCaseId[row.id] = enrichSkinsWithLivePrices(raw, prices);
+  }
+
+  // buildCaseCatalogEntries now receives the per-case map so preview blocks
+  // only contain skins that actually belong to each specific case.
+  const cases = buildCaseCatalogEntries(caseRows, skinsByCaseId).map(
     (entry) => ({
       ...entry,
-      skins: enrichSkinsWithLivePrices(
-        CASE_SKINS[entry.id] ?? CASE_SKINS["classic"] ?? [],
-        prices,
-      ),
+      // Also attach the flat skin list on the case so the frontend spinner
+      // and the open-case roll both draw from the correct per-case pool.
+      skins: skinsByCaseId[entry.id] ?? [],
     }),
   );
 
@@ -62,13 +72,23 @@ export async function get({ env }: RouteContext): Promise<Response> {
   const caseCost = classic?.cost ?? CASE_COST;
   const defaultCaseId = classic?.id ?? "classic";
 
-  // Deduplicate by name for the top-level skins array used by the upgrader
+  // Top-level deduplicated skin list used by the upgrader — union of all
+  // per-case skins, one entry per name (no duplicates across cases).
   const seen = new Set<string>();
-  const dedupedSkins = enrichedAllSkins.filter((s) => {
-    if (seen.has(s.name)) return false;
-    seen.add(s.name);
-    return true;
-  });
+  const dedupedSkins: {
+    name: string;
+    rarity: string;
+    value: number;
+    icon: string;
+  }[] = [];
+  for (const skins of Object.values(skinsByCaseId)) {
+    for (const s of skins) {
+      if (!seen.has(s.name)) {
+        seen.add(s.name);
+        dedupedSkins.push(s);
+      }
+    }
+  }
 
   return json(
     {

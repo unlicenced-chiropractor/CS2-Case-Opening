@@ -349,7 +349,7 @@ watch(
 const oddsLine = computed(() => {
   const lp = selectedCase.value?.luckPool;
   if (!lp?.length) {
-    return "Mil-Spec 55% · Restricted 28% · Classified 12% · Covert 4.5% · Rare Special 0.5%";
+    return "Mil-Spec 79.9% · Restricted 16% · Classified 3.2% · Covert 0.6% · Rare Special 0.3%";
   }
   return lp.map((e) => `${e.rarity} ${e.percent}%`).join(" · ");
 });

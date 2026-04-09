@@ -9,6 +9,24 @@ import {
 export const casesList = ref([]);
 export const catalogSkins = ref([...FALLBACK_SKINS]);
 
+export const cs2CasesList = ref([]);
+let cs2LoadPromise = null;
+
+export function ensureCs2Cases() {
+  if (cs2LoadPromise) return cs2LoadPromise;
+  cs2LoadPromise = (async () => {
+    try {
+      const result = await apiFetch("/api/cs2cases", { method: "GET" });
+      if (Array.isArray(result.cases) && result.cases.length) {
+        cs2CasesList.value = result.cases;
+      }
+    } catch {
+      // silently fail — section just won't appear
+    }
+  })();
+  return cs2LoadPromise;
+}
+
 let loadPromise = null;
 
 export function weightsToLuckPool(weights) {
@@ -128,6 +146,7 @@ export function ensureCaseCatalog() {
 }
 
 export function caseCardAccentBorder(caseId) {
+  if (String(caseId).startsWith("crate-")) return "border-l-orange-400/70";
   const borders = {
     free: "border-l-green-400/80",
     budget: "border-l-emerald-500/70",

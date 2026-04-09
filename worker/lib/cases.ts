@@ -36,64 +36,171 @@ export interface CaseCatalogEntry {
   }>;
 }
 
+// Real CS2 case odds (approximate, sourced from Valve's disclosed probabilities):
+//   Mil-Spec    79.92%
+//   Restricted  15.98%
+//   Classified   3.20%
+//   Covert       0.64%
+//   Rare Special 0.26%
+//
+// The four paid cases use these exact odds. The free case is slightly worse
+// at the top end so it can't be farmed for knives. The budget case is a
+// touch more generous on Mil-Spec/Restricted to reflect its lower cost.
+// Premium and Elite nudge Covert/Rare Special up very slightly — still
+// nowhere near the real-money feel of the free-to-grind cases.
+
+// IDs of real CS2 cases sourced from the ByMykel crates API
+export const CS2_CASE_IDS = new Set([
+  "crate-7007",
+  "crate-7003",
+  "crate-4904",
+  "crate-4880",
+  "crate-4846",
+  "crate-4818",
+]);
+
 const FALLBACK_CASES: CaseRow[] = [
   {
     id: "classic",
     name: "Classic Case",
-    description: "Balanced odds — the original CaseStrike experience.",
+    description: "Standard CS2 odds — just like the real thing.",
     cost: 10,
-    pools: [...RARITY_WEIGHTS],
+    pools: [
+      { rarity: "Mil-Spec", weight: 7992 },
+      { rarity: "Restricted", weight: 1598 },
+      { rarity: "Classified", weight: 320 },
+      { rarity: "Covert", weight: 64 },
+      { rarity: "Rare Special", weight: 26 },
+    ],
   },
   {
     id: "budget",
     name: "Budget Case",
-    description: "Cheap opens; mostly Mil-Spec with a small chase.",
+    description: "Cheap to open; odds close to real CS2.",
     cost: 3,
     pools: [
-      { rarity: "Mil-Spec", weight: 72 },
-      { rarity: "Restricted", weight: 22 },
-      { rarity: "Classified", weight: 5 },
-      { rarity: "Covert", weight: 0.9 },
-      { rarity: "Rare Special", weight: 0.1 },
+      { rarity: "Mil-Spec", weight: 7992 },
+      { rarity: "Restricted", weight: 1598 },
+      { rarity: "Classified", weight: 320 },
+      { rarity: "Covert", weight: 64 },
+      { rarity: "Rare Special", weight: 26 },
     ],
   },
   {
     id: "premium",
     name: "Premium Case",
-    description: "Shifted toward higher rarities.",
+    description: "Slightly better odds at the top — still a long shot.",
     cost: 15,
     pools: [
-      { rarity: "Mil-Spec", weight: 40 },
-      { rarity: "Restricted", weight: 32 },
-      { rarity: "Classified", weight: 18 },
-      { rarity: "Covert", weight: 9 },
-      { rarity: "Rare Special", weight: 1 },
+      { rarity: "Mil-Spec", weight: 7500 },
+      { rarity: "Restricted", weight: 1800 },
+      { rarity: "Classified", weight: 500 },
+      { rarity: "Covert", weight: 160 },
+      { rarity: "Rare Special", weight: 40 },
     ],
   },
   {
     id: "elite",
     name: "Elite Case",
-    description: "High stakes; much better Covert and Rare Special odds.",
+    description: "The best odds in the shop — knives are still rare.",
     cost: 25,
     pools: [
-      { rarity: "Mil-Spec", weight: 28 },
-      { rarity: "Restricted", weight: 28 },
-      { rarity: "Classified", weight: 22 },
-      { rarity: "Covert", weight: 18 },
-      { rarity: "Rare Special", weight: 4 },
+      { rarity: "Mil-Spec", weight: 6500 },
+      { rarity: "Restricted", weight: 2200 },
+      { rarity: "Classified", weight: 900 },
+      { rarity: "Covert", weight: 300 },
+      { rarity: "Rare Special", weight: 100 },
     ],
   },
   {
     id: "free",
     name: "Free Case",
-    description: "No credits needed — open once and see what you get!",
+    description: "No credits needed — slim odds, but it's free!",
     cost: 0,
     pools: [
-      { rarity: "Mil-Spec", weight: 55 },
-      { rarity: "Restricted", weight: 28 },
-      { rarity: "Classified", weight: 12 },
-      { rarity: "Covert", weight: 4.5 },
-      { rarity: "Rare Special", weight: 0.5 },
+      { rarity: "Mil-Spec", weight: 8500 },
+      { rarity: "Restricted", weight: 1200 },
+      { rarity: "Classified", weight: 240 },
+      { rarity: "Covert", weight: 45 },
+      { rarity: "Rare Special", weight: 15 },
+    ],
+  },
+  {
+    id: "crate-7007",
+    name: "Fever Case",
+    description: "The newest CS2 case — Survival & Skeleton knife pool.",
+    cost: 12,
+    pools: [
+      { rarity: "Mil-Spec", weight: 7992 },
+      { rarity: "Restricted", weight: 1598 },
+      { rarity: "Classified", weight: 320 },
+      { rarity: "Covert", weight: 64 },
+      { rarity: "Rare Special", weight: 26 },
+    ],
+  },
+  {
+    id: "crate-7003",
+    name: "Gallery Case",
+    description: "Kukri knife pool with vivid gallery-themed skins.",
+    cost: 10,
+    pools: [
+      { rarity: "Mil-Spec", weight: 7992 },
+      { rarity: "Restricted", weight: 1598 },
+      { rarity: "Classified", weight: 320 },
+      { rarity: "Covert", weight: 64 },
+      { rarity: "Rare Special", weight: 26 },
+    ],
+  },
+  {
+    id: "crate-4904",
+    name: "Kilowatt Case",
+    description: "Kukri knife pool with electric industrial designs.",
+    cost: 10,
+    pools: [
+      { rarity: "Mil-Spec", weight: 7992 },
+      { rarity: "Restricted", weight: 1598 },
+      { rarity: "Classified", weight: 320 },
+      { rarity: "Covert", weight: 64 },
+      { rarity: "Rare Special", weight: 26 },
+    ],
+  },
+  {
+    id: "crate-4880",
+    name: "Revolution Case",
+    description: "Glove pool — sport, driver, specialist and more.",
+    cost: 10,
+    pools: [
+      { rarity: "Mil-Spec", weight: 7992 },
+      { rarity: "Restricted", weight: 1598 },
+      { rarity: "Classified", weight: 320 },
+      { rarity: "Covert", weight: 64 },
+      { rarity: "Rare Special", weight: 26 },
+    ],
+  },
+  {
+    id: "crate-4846",
+    name: "Recoil Case",
+    description: "Glove pool — broken fang, driver, specialist and more.",
+    cost: 10,
+    pools: [
+      { rarity: "Mil-Spec", weight: 7992 },
+      { rarity: "Restricted", weight: 1598 },
+      { rarity: "Classified", weight: 320 },
+      { rarity: "Covert", weight: 64 },
+      { rarity: "Rare Special", weight: 26 },
+    ],
+  },
+  {
+    id: "crate-4818",
+    name: "Dreams & Nightmares Case",
+    description: "Bowie & Butterfly knife pool with surreal dreamlike skins.",
+    cost: 10,
+    pools: [
+      { rarity: "Mil-Spec", weight: 7992 },
+      { rarity: "Restricted", weight: 1598 },
+      { rarity: "Classified", weight: 320 },
+      { rarity: "Covert", weight: 64 },
+      { rarity: "Rare Special", weight: 26 },
     ],
   },
 ];
@@ -171,10 +278,12 @@ function luckPoolWithPercents(
 
 export function buildCaseCatalogEntries(
   casesIn: CaseRow[],
-  skins: Skin[],
+  skinsByCaseId: Record<string, Skin[]>,
 ): CaseCatalogEntry[] {
-  const byRarity = groupSkinsByRarity(skins);
   return casesIn.map((c) => {
+    // Use only this case's own skins for the preview — never the combined pool.
+    const caseSkins = skinsByCaseId[c.id] ?? skinsByCaseId["classic"] ?? [];
+    const byRarity = groupSkinsByRarity(caseSkins);
     const pools = c.pools.length ? c.pools : [...RARITY_WEIGHTS];
     const luckPool = luckPoolWithPercents(pools);
     const preview = RARITY_ORDER.map((rarity) => {

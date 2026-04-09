@@ -9,11 +9,11 @@ export const WEAR_TABLE = [
 export const CASE_COST = 10;
 
 export const RARITY_WEIGHTS = [
-  { rarity: "Mil-Spec", weight: 55 },
-  { rarity: "Restricted", weight: 28 },
-  { rarity: "Classified", weight: 12 },
-  { rarity: "Covert", weight: 4.5 },
-  { rarity: "Rare Special", weight: 0.5 },
+  { rarity: "Mil-Spec", weight: 7992 },
+  { rarity: "Restricted", weight: 1598 },
+  { rarity: "Classified", weight: 320 },
+  { rarity: "Covert", weight: 64 },
+  { rarity: "Rare Special", weight: 26 },
 ];
 
 // border color + glow class pairs used by CaseSpinner and inventory cards

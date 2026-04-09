@@ -19,10 +19,12 @@ import { post as adminSetAdminPost } from "./api/admin/set-admin/post";
 import { post as adminDeleteUserPost } from "./api/admin/delete-user/post";
 import { post as adminUpdateBalancePost } from "./api/admin/update-balance/post";
 import { post as deleteAccountPost } from "./api/delete-account/post";
+import { get as cs2CasesGet } from "./api/cs2cases/get";
 
 export const routes: RouteEntry[] = [
   { method: "GET", path: "/api/health", handler: healthGet },
   { method: "GET", path: "/api/catalog", handler: catalogGet },
+  { method: "GET", path: "/api/cs2cases", handler: cs2CasesGet },
   { method: "POST", path: "/api/register", handler: registerPost },
   { method: "POST", path: "/api/login", handler: loginPost },
   { method: "GET", path: "/api/me", handler: meGet },
@@ -35,10 +37,30 @@ export const routes: RouteEntry[] = [
   { method: "POST", path: "/api/sell-bulk", handler: sellBulkPost },
   { method: "POST", path: "/api/upgrade", handler: upgradePost },
   { method: "GET", path: "/api/admin/users", handler: adminUsersGet },
-  { method: "POST", path: "/api/admin/create-reset-link", handler: adminCreateResetLinkPost },
-  { method: "GET", path: "/api/admin/list-reset-links", handler: adminListResetLinksGet },
-  { method: "POST", path: "/api/admin/revoke-reset-link", handler: adminRevokeResetLinkPost },
+  {
+    method: "POST",
+    path: "/api/admin/create-reset-link",
+    handler: adminCreateResetLinkPost,
+  },
+  {
+    method: "GET",
+    path: "/api/admin/list-reset-links",
+    handler: adminListResetLinksGet,
+  },
+  {
+    method: "POST",
+    path: "/api/admin/revoke-reset-link",
+    handler: adminRevokeResetLinkPost,
+  },
   { method: "POST", path: "/api/admin/set-admin", handler: adminSetAdminPost },
-  { method: "POST", path: "/api/admin/delete-user", handler: adminDeleteUserPost },
-  { method: "POST", path: "/api/admin/update-balance", handler: adminUpdateBalancePost },
+  {
+    method: "POST",
+    path: "/api/admin/delete-user",
+    handler: adminDeleteUserPost,
+  },
+  {
+    method: "POST",
+    path: "/api/admin/update-balance",
+    handler: adminUpdateBalancePost,
+  },
 ];
