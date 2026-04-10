@@ -27,7 +27,10 @@ export async function post({ request, env }: RouteContext): Promise<Response> {
     return json({ error: "Not enough credits for this case." }, 400);
   }
 
-  const selectedSkin = await rollSkin(resolved.skins, resolved.luckPool);
+  const selectedSkin = await rollSkin(resolved.skins, resolved.luckPool, {
+    valueMultiplier: resolved.valueMultiplier,
+    useLivePrices: true,
+  });
   const now = Date.now();
   const nextBalance = currentBalance - cost;
 

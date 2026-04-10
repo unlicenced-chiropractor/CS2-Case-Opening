@@ -1,5 +1,8 @@
 import { CASE_SKINS, RARITY_WEIGHTS } from "./constants";
+import { CS2_CASE_IDS, getLiveCrateOpenBundle } from "./cs2CrateCatalog";
 import type { Env, Skin } from "./types";
+
+export { CS2_CASE_IDS } from "./cs2CrateCatalog";
 
 const RARITY_ORDER = RARITY_WEIGHTS.map((r) => r.rarity);
 
@@ -36,6 +39,33 @@ export interface CaseCatalogEntry {
   }>;
 }
 
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
+}
+
+/**
+ * Payout scaling for non-official/demo cases.
+ *
+ * Goal: make ROI feel closer to real CS2 cases (negative EV), while allowing
+ * more expensive cases to have a *slightly* better shot at good ROI.
+ */
+export function demoCaseValueMultiplier(caseId: string, cost: number): number {
+  const id = String(caseId || "").trim();
+  if (!id || CS2_CASE_IDS.has(id) || id.startsWith("crate-")) return 1;
+
+  const c = Number(cost);
+  if (!Number.isFinite(c) || c <= 0) return 0.16; // free/open-for-fun should not print money
+
+  // Linear scale from harsh (cheap) -> slightly less harsh (expensive)
+  // budget ($3): ~0.20, classic ($10): ~0.225, premium ($15): ~0.24, elite ($25): ~0.27
+  const minCost = 3;
+  const maxCost = 25;
+  const minMul = 0.20;
+  const maxMul = 0.27;
+  const t = clamp((c - minCost) / (maxCost - minCost), 0, 1);
+  return Number((minMul + (maxMul - minMul) * t).toFixed(4));
+}
+
 // Real CS2 case odds (approximate, sourced from Valve's disclosed probabilities):
 //   Mil-Spec    79.92%
 //   Restricted  15.98%
@@ -48,16 +78,6 @@ export interface CaseCatalogEntry {
 // touch more generous on Mil-Spec/Restricted to reflect its lower cost.
 // Premium and Elite nudge Covert/Rare Special up very slightly — still
 // nowhere near the real-money feel of the free-to-grind cases.
-
-// IDs of real CS2 cases sourced from the ByMykel crates API
-export const CS2_CASE_IDS = new Set([
-  "crate-7007",
-  "crate-7003",
-  "crate-4904",
-  "crate-4880",
-  "crate-4846",
-  "crate-4818",
-]);
 
 const FALLBACK_CASES: CaseRow[] = [
   {
@@ -380,14 +400,34 @@ export async function resolveCaseForOpen(
   cost: number;
   luckPool: { rarity: string; weight: number }[];
   skins: { name: string; rarity: string; value: number; icon: string }[];
+  valueMultiplier: number;
 } | null> {
   const cases = await loadCases(env);
   if (!cases.length) return null;
   const raw = String(caseId ?? "").trim();
   const id = raw || "classic";
+
+  if (CS2_CASE_IDS.has(id)) {
+    const live = await getLiveCrateOpenBundle(id);
+    if (!live) return null;
+    return {
+      id,
+      cost: live.cost,
+      luckPool: live.luckPool,
+      skins: live.skins,
+      valueMultiplier: 1,
+    };
+  }
+
   let c = cases.find((x) => x.id === id);
   if (!c) c = cases.find((x) => x.id === "classic") ?? cases[0];
   const pools = c.pools.length ? c.pools : [...RARITY_WEIGHTS];
   const skins = CASE_SKINS[c.id] ?? CASE_SKINS["classic"] ?? [];
-  return { id: c.id, cost: c.cost, luckPool: pools, skins };
+  return {
+    id: c.id,
+    cost: c.cost,
+    luckPool: pools,
+    skins,
+    valueMultiplier: demoCaseValueMultiplier(c.id, c.cost),
+  };
 }

@@ -135,6 +135,12 @@ export interface WearEntry {
 export async function rollSkin(
   sourceSkins: Skin[],
   luckPool?: ReadonlyArray<{ rarity: string; weight: number }> | null,
+  options?: {
+    /** Multiply the final resolved value (after wear + optional live price). */
+    valueMultiplier?: number;
+    /** If false, never consult the live price feed. */
+    useLivePrices?: boolean;
+  },
 ): Promise<Skin> {
   const skins =
     Array.isArray(sourceSkins) && sourceSkins.length > 0
@@ -159,14 +165,24 @@ export async function rollSkin(
     WEAR_MULTIPLIER[wear.name as keyof typeof WEAR_MULTIPLIER];
   const fallbackValue = Number((selected.value * wearMultiplier).toFixed(2));
 
-  // Fetch live prices (uses cache if fresh, fetches if stale)
-  const prices = await getPrices();
-  const priceKey = `${selected.name} (${wear.name})`;
-  const livePrice = prices[priceKey];
-  const value =
-    livePrice != null && livePrice > 0
-      ? Number(livePrice.toFixed(2))
-      : fallbackValue;
+  const useLivePrices = options?.useLivePrices !== false;
+  const valueMultiplier =
+    Number.isFinite(options?.valueMultiplier) && Number(options?.valueMultiplier) > 0
+      ? Number(options?.valueMultiplier)
+      : 1;
+
+  let value = fallbackValue;
+  if (useLivePrices) {
+    // Fetch live prices (uses cache if fresh, fetches if stale)
+    const prices = await getPrices();
+    const priceKey = `${selected.name} (${wear.name})`;
+    const livePrice = prices[priceKey];
+    if (livePrice != null && livePrice > 0) {
+      value = Number(livePrice.toFixed(2));
+    }
+  }
+
+  value = Number((value * valueMultiplier).toFixed(2));
 
   return {
     ...selected,

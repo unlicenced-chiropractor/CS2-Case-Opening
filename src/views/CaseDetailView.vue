@@ -99,7 +99,12 @@
         <div class="mt-10 border-t border-white/8 pt-8">
           <h2 class="text-sm font-semibold uppercase tracking-widest text-zinc-500">What's inside</h2>
           <p class="mt-2 max-w-2xl text-xs leading-relaxed text-zinc-600">
-            Sample of items from the live catalog by rarity. Totals reflect how many skins map to each tier; your roll uses the odds shown above.
+            <template v-if="String(selectedCase?.id || '').startsWith('crate-')">
+              Skins in this CS2 case (from the live game data API), grouped by rarity. Prices use the same live feed as opens when available. Drop odds match Valve's published case probabilities.
+            </template>
+            <template v-else>
+              Sample of items from the live catalog by rarity. Totals reflect how many skins map to each tier; your roll uses the odds shown above.
+            </template>
           </p>
           <div v-for="block in activePreview" :key="block.rarity" class="mt-8 first:mt-6">
             <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-white/5 pb-2">
@@ -126,6 +131,9 @@
                   :title="s.name"
                 >
                   {{ s.name }}
+                </p>
+                <p v-if="s.value != null" class="mt-0.5 text-center text-[9px] font-medium text-zinc-500">
+                  ${{ Number(s.value).toFixed(2) }}
                 </p>
               </div>
             </div>
@@ -292,7 +300,14 @@ import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import CaseSpinner from "../components/CaseSpinner.vue";
 import { CASE_COST as FALLBACK_CASE_COST, RARITY_STYLES, SKINS as FALLBACK_SKINS } from "../data/skins";
-import { buildLocalPreview, casesList, catalogSkins, ensureCaseCatalog } from "../lib/caseCatalog";
+import {
+  buildLocalPreview,
+  casesList,
+  catalogSkins,
+  cs2CasesList,
+  ensureCaseCatalog,
+  ensureCs2Cases,
+} from "../lib/caseCatalog";
 import { makeCaseWeightedSpinnerFeed, makeSpinnerFeed } from "../lib/economy";
 import { useUserState } from "../lib/userState";
 
@@ -314,8 +329,12 @@ const caseIdParam = computed(() => String(route.params.caseId ?? "").trim());
 
 const selectedCase = computed(() => {
   const id = caseIdParam.value;
-  if (!id || !casesList.value.length) return null;
-  return casesList.value.find((c) => c.id === id) ?? null;
+  if (!id) return null;
+  return (
+    casesList.value.find((c) => c.id === id) ??
+    cs2CasesList.value.find((c) => c.id === id) ??
+    null
+  );
 });
 
 const caseCost = computed(() => Number(selectedCase.value?.cost ?? FALLBACK_CASE_COST));
@@ -338,7 +357,13 @@ function rebuildCaseSpinnerFeed() {
 }
 
 watch(
-  () => [caseIdParam.value, casesList.value.length, catalogSkins.value.length, selectedCase.value?.id],
+  () => [
+    caseIdParam.value,
+    casesList.value.length,
+    cs2CasesList.value.length,
+    catalogSkins.value.length,
+    selectedCase.value?.id,
+  ],
   () => {
     if (selectedCase.value) {
       rebuildCaseSpinnerFeed();
@@ -451,9 +476,13 @@ async function openCase() {
 }
 
 async function boot() {
-  await ensureCaseCatalog();
+  await Promise.all([ensureCaseCatalog(), ensureCs2Cases()]);
   ready.value = true;
-  if (casesList.value.length && caseIdParam.value && !selectedCase.value) {
+  if (
+    (casesList.value.length || cs2CasesList.value.length) &&
+    caseIdParam.value &&
+    !selectedCase.value
+  ) {
     router.replace({ name: "home" });
   }
   if (selectedCase.value) {
@@ -465,7 +494,11 @@ onMounted(boot);
 watch(caseIdParam, () => {
   if (!ready.value) return;
   state.error = "";
-  if (casesList.value.length && caseIdParam.value && !selectedCase.value) {
+  if (
+    (casesList.value.length || cs2CasesList.value.length) &&
+    caseIdParam.value &&
+    !selectedCase.value
+  ) {
     router.replace({ name: "home" });
   }
   if (selectedCase.value) {

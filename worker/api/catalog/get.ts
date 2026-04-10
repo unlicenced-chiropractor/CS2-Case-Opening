@@ -1,4 +1,8 @@
-import { buildCaseCatalogEntries, loadCases } from "../../lib/cases";
+import {
+  buildCaseCatalogEntries,
+  demoCaseValueMultiplier,
+  loadCases,
+} from "../../lib/cases";
 import { CASE_COST, CASE_SKINS, RARITY_WEIGHTS } from "../../lib/constants";
 import { json, warmPriceCache } from "../../lib/utils";
 import type { RouteContext } from "../../lib/types";
@@ -31,10 +35,11 @@ function getLivePrice(
 function enrichSkinsWithLivePrices(
   skins: { name: string; rarity: string; value: number; icon: string }[],
   prices: Record<string, number>,
+  valueMultiplier = 1,
 ) {
   return skins.map((s) => ({
     ...s,
-    value: getLivePrice(prices, s.name, s.value),
+    value: Number((getLivePrice(prices, s.name, s.value) * valueMultiplier).toFixed(2)),
   }));
 }
 
@@ -54,7 +59,11 @@ export async function get({ env }: RouteContext): Promise<Response> {
 
   for (const row of caseRows) {
     const raw = CASE_SKINS[row.id] ?? CASE_SKINS["classic"] ?? [];
-    skinsByCaseId[row.id] = enrichSkinsWithLivePrices(raw, prices);
+    skinsByCaseId[row.id] = enrichSkinsWithLivePrices(
+      raw,
+      prices,
+      demoCaseValueMultiplier(row.id, row.cost),
+    );
   }
 
   // buildCaseCatalogEntries now receives the per-case map so preview blocks
